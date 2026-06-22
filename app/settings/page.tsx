@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { AlertCircle, Bell, Database, KeyRound, Layers, Plus, ShieldCheck, UserRound, Users, Pencil, Eye, EyeOff } from "lucide-react"
+import { AlertCircle, Bell, Database, KeyRound, Layers, Plus, ShieldCheck, UserRound, Users, Pencil, Eye, EyeOff, Landmark } from "lucide-react"
 import { useData } from "@/lib/store"
 import { formatTZS } from "@/lib/format"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -23,12 +23,15 @@ export default function SettingsPage() {
     role,
     agents,
     networks,
+    banks,
     expenseCategories,
     addAgent,
     toggleAgentActive,
     updateAgent,
     addNetwork,
     updateNetworkThreshold,
+    addBank,
+    updateBankThreshold,
     addExpenseCategory,
     seedDatabase,
     loading,
@@ -43,6 +46,13 @@ export default function SettingsPage() {
   const [agentPhone, setAgentPhone] = useState("")
   const [agentRole, setAgentRole] = useState<"super_admin" | "agent">("agent")
   const [isAgentSubmitting, setIsAgentSubmitting] = useState(false)
+
+  // New Bank Form states
+  const [bankName, setBankName] = useState("")
+  const [bankCode, setBankCode] = useState("")
+  const [bankFloat, setBankFloat] = useState("")
+  const [bankThreshold, setBankThreshold] = useState("")
+  const [isBankSubmitting, setIsBankSubmitting] = useState(false)
   const [agentPassword, setAgentPassword] = useState("")
   const [agentPin, setAgentPin] = useState("")
   const [showAgentPassword, setShowAgentPassword] = useState(false)
@@ -204,6 +214,30 @@ export default function SettingsPage() {
     }
   }
 
+  const handleBankSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!bankName || !bankCode || !bankFloat || !bankThreshold) return
+
+    try {
+      setIsBankSubmitting(true)
+      await addBank({
+        name: bankName,
+        id: bankCode.toLowerCase().trim(),
+        floatBalance: Number(bankFloat),
+        threshold: Number(bankThreshold),
+      })
+      setBankName("")
+      setBankCode("")
+      setBankFloat("")
+      setBankThreshold("")
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsBankSubmitting(false)
+    }
+  }
+
+
   const handleCategorySubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!catName) return
@@ -317,6 +351,15 @@ export default function SettingsPage() {
             >
               <Layers className="size-4" />
               <span>Mobile Networks</span>
+            </Button>
+
+            <Button
+              variant={activeTab === "banks" ? "secondary" : "ghost"}
+              className="justify-start gap-2 h-9 text-xs"
+              onClick={() => setActiveTab("banks")}
+            >
+              <Landmark className="size-4" />
+              <span>Bank Partners</span>
             </Button>
 
             <Button
@@ -764,6 +807,119 @@ export default function SettingsPage() {
                             ) : (
                               <span className="font-mono text-xs tabular-nums pr-2">
                                 {formatTZS(net.threshold)}
+                              </span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Bank Partners configuration tab */}
+          {activeTab === "banks" && (
+            <div className="flex flex-col gap-6">
+              {role === "super_admin" && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Add Bank Partner</CardTitle>
+                    <CardDescription>Register a new partner bank provider to the ledger.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleBankSubmit} className="flex flex-wrap items-end gap-4">
+                      <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
+                        <Label htmlFor="bank-name">Bank Name</Label>
+                        <Input
+                          id="bank-name"
+                          placeholder="e.g. CRDB Wakala"
+                          required
+                          value={bankName}
+                          onChange={(e) => setBankName(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5 w-[100px]">
+                        <Label htmlFor="bank-code">Bank ID / Code</Label>
+                        <Input
+                          id="bank-code"
+                          placeholder="e.g. crdb"
+                          required
+                          value={bankCode}
+                          onChange={(e) => setBankCode(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
+                        <Label htmlFor="bank-float">Opening Float (TZS)</Label>
+                        <Input
+                          id="bank-float"
+                          type="number"
+                          placeholder="1,000,000"
+                          required
+                          value={bankFloat}
+                          onChange={(e) => setBankFloat(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
+                        <Label htmlFor="bank-threshold">Low Alert Limit (TZS)</Label>
+                        <Input
+                          id="bank-threshold"
+                          type="number"
+                          placeholder="500,000"
+                          required
+                          value={bankThreshold}
+                          onChange={(e) => setBankThreshold(e.target.value)}
+                        />
+                      </div>
+
+                      <Button type="submit" disabled={isBankSubmitting} className="h-8">
+                        {isBankSubmitting ? "Adding..." : "Add Bank"}
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Registered Bank Partners & Thresholds</CardTitle>
+                  <CardDescription>Configure low-float thresholds and monitor bank account health.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Bank Partner</TableHead>
+                        <TableHead>Bank ID / Code</TableHead>
+                        <TableHead className="text-right">Float Balance</TableHead>
+                        <TableHead className="w-[180px] text-right pr-6">Low Alert limit (TZS)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {banks.map((bank) => (
+                        <TableRow key={bank.id}>
+                          <TableCell className="font-semibold text-xs">{bank.name}</TableCell>
+                          <TableCell className="text-xs font-mono">{bank.id}</TableCell>
+                          <TableCell className="text-right font-mono text-xs tabular-nums">
+                            {formatTZS(bank.floatBalance)}
+                          </TableCell>
+                          <TableCell className="text-right pr-6">
+                            {role === "super_admin" ? (
+                              <Input
+                                type="number"
+                                className="h-7 w-32 ml-auto text-right font-mono text-xs"
+                                value={bank.threshold}
+                                onChange={(e) =>
+                                  updateBankThreshold(bank.id, Number(e.target.value))
+                                }
+                              />
+                            ) : (
+                              <span className="font-mono text-xs tabular-nums pr-2">
+                                {formatTZS(bank.threshold)}
                               </span>
                             )}
                           </TableCell>

@@ -106,7 +106,9 @@ interface DataContextValue {
   }) => Promise<void>
   // settings
   addNetwork: (input: { name: string; code: string; floatBalance: number; threshold: number }) => Promise<void>
+  addBank: (input: { name: string; id: string; floatBalance: number; threshold: number }) => Promise<void>
   updateNetworkThreshold: (id: string, threshold: number) => Promise<void>
+  updateBankThreshold: (id: string, threshold: number) => Promise<void>
   addExpenseCategory: (name: string) => Promise<void>
   updateTier: (id: string, field: "deposit" | "withdrawal", value: number) => Promise<void>
   updateBankCommissionTier: (id: string, commission: number) => Promise<void>
@@ -544,6 +546,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [apiFetch, reloadData])
 
+  const addBank = useCallback(async (input: { name: string; id: string; floatBalance: number; threshold: number }) => {
+    try {
+      await apiFetch("/api/agent-banking/banks", {
+        method: "POST",
+        body: JSON.stringify(input),
+      })
+      toast.success("Bank partner registered successfully!")
+      reloadData()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to register bank partner")
+      throw err
+    }
+  }, [apiFetch, reloadData])
+
+  const updateBankThreshold = useCallback(async (id: string, threshold: number) => {
+    try {
+      await apiFetch("/api/agent-banking/banks", {
+        method: "PUT",
+        body: JSON.stringify({ id, threshold }),
+      })
+      toast.success("Bank threshold updated!")
+      reloadData()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update bank threshold")
+    }
+  }, [apiFetch, reloadData])
+
+
   const addExpense = useCallback(async (input: { categoryId: string; amount: number; description: string; receipt?: string | null }) => {
     try {
       await apiFetch("/api/expenses", {
@@ -760,7 +790,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     reconcileBankFloat,
     addTransfer,
     addNetwork,
+    addBank,
     updateNetworkThreshold,
+    updateBankThreshold,
     addExpenseCategory,
     updateTier,
     updateBankCommissionTier,
