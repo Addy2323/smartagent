@@ -11,6 +11,11 @@ import {
   floatTopups,
   transactions,
   cashEntries,
+  banks,
+  bankCommissionTiers,
+  bankTransactions,
+  bankFloatTopups,
+  transfers,
 } from "@/lib/seed"
 
 export async function POST() {
@@ -33,6 +38,11 @@ export async function POST() {
     await prisma.transaction.deleteMany()
     await prisma.commissionTier.deleteMany()
     await prisma.network.deleteMany()
+    await prisma.transfer.deleteMany()
+    await prisma.bankFloatTopup.deleteMany()
+    await prisma.bankTransaction.deleteMany()
+    await prisma.bankCommissionTier.deleteMany()
+    await prisma.bank.deleteMany()
     await prisma.agent.deleteMany()
 
     // 1. Seed Agents
@@ -161,6 +171,79 @@ export async function POST() {
         reason: c.reason,
         agentId: c.agentId,
         createdAt: new Date(c.createdAt),
+      })),
+    })
+
+    // 10. Seed Banks
+    await prisma.bank.createMany({
+      data: banks.map((b) => ({
+        id: b.id,
+        name: b.name,
+        floatBalance: b.floatBalance,
+        threshold: b.threshold,
+        active: b.active,
+      })),
+    })
+
+    // 11. Seed Bank Commission Tiers
+    await prisma.bankCommissionTier.createMany({
+      data: bankCommissionTiers.map((bt) => ({
+        id: bt.id,
+        bankId: bt.bankId,
+        service: bt.service,
+        min: bt.min,
+        max: bt.max,
+        commission: bt.commission,
+      })),
+    })
+
+    // 12. Seed Bank Transactions
+    await prisma.bankTransaction.createMany({
+      data: bankTransactions.map((bt) => ({
+        id: bt.id,
+        ref: bt.ref,
+        type: bt.type as any,
+        bankId: bt.bankId,
+        accountNumber: bt.accountNumber,
+        accountName: bt.accountName,
+        amount: bt.amount,
+        fee: bt.fee,
+        commission: bt.commission,
+        tellerNumber: bt.tellerNumber,
+        customerName: bt.customerName,
+        customerPhone: bt.customerPhone,
+        referenceNumber: bt.referenceNumber,
+        notes: bt.notes,
+        agentId: bt.agentId,
+        createdAt: new Date(bt.createdAt),
+      })),
+    })
+
+    // 13. Seed Bank Float Topups
+    await prisma.bankFloatTopup.createMany({
+      data: bankFloatTopups.map((bf) => ({
+        id: bf.id,
+        bankId: bf.bankId,
+        amount: bf.amount,
+        source: bf.source,
+        note: bf.note,
+        agentId: bf.agentId,
+        createdAt: new Date(bf.createdAt),
+      })),
+    })
+
+    // 14. Seed Transfers
+    await prisma.transfer.createMany({
+      data: transfers.map((tr) => ({
+        id: tr.id,
+        sourceType: tr.sourceType,
+        sourceId: tr.sourceId,
+        destType: tr.destType,
+        destId: tr.destId,
+        amount: tr.amount,
+        charges: tr.charges,
+        agentId: tr.agentId,
+        createdAt: new Date(tr.createdAt),
       })),
     })
 

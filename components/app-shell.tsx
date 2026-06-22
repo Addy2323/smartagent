@@ -25,6 +25,11 @@ const titles: Record<string, string> = {
   "/profit-loss": "Profit & Loss",
   "/reports": "Reports",
   "/settings": "Settings",
+  "/agent-banking": "Bank Dashboard",
+  "/agent-banking/transactions": "Bank Transactions",
+  "/agent-banking/float": "Bank Float",
+  "/agent-banking/commissions": "Bank Commissions",
+  "/transfers": "Cash & Float Transfers",
 }
 
 function InstallAppButton() {
@@ -68,10 +73,11 @@ function InstallAppButton() {
       size="sm"
       variant="outline"
       onClick={handleInstallClick}
-      className="h-7 gap-1.5 px-2.5 text-xs text-primary border-primary/20 hover:bg-primary/5 active:scale-95 transition-all"
+      className="h-7 gap-1 px-2 sm:gap-1.5 sm:px-2.5 text-xs text-primary border-primary/20 hover:bg-primary/5 active:scale-95 transition-all"
+      aria-label="Install App"
     >
       <Download className="size-3.5 animate-bounce" style={{ animationDuration: "2s" }} />
-      <span>Install App</span>
+      <span className="hidden sm:inline">Install App</span>
     </Button>
   )
 }

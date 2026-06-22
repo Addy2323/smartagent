@@ -105,3 +105,70 @@ export interface Debt {
   createdAt: string
   dueDate: string
 }
+
+export type BankTxType =
+  | "deposit"
+  | "withdrawal"
+  | "balance_inquiry"
+  | "mini_statement"
+  | "cardless_withdrawal"
+  | "account_opening"
+
+export interface Bank {
+  id: string
+  name: string
+  floatBalance: number
+  threshold: number
+  active: boolean
+}
+
+export interface BankCommissionTier {
+  id: string
+  bankId: string
+  service: string
+  min: number
+  max: number
+  commission: number
+}
+
+export interface BankTransaction {
+  id: string
+  ref: string
+  type: BankTxType
+  bankId: string
+  accountNumber?: string | null
+  accountName?: string | null
+  amount: number
+  fee: number
+  commission: number
+  tellerNumber?: string | null
+  customerName?: string | null
+  customerPhone?: string | null
+  referenceNumber?: string | null
+  notes?: string | null
+  agentId: string
+  createdAt: string
+}
+
+export interface BankFloatTopup {
+  id: string
+  bankId: string
+  amount: number
+  source: string
+  note: string
+  agentId: string
+  createdAt: string
+}
+
+export interface Transfer {
+  id: string
+  sourceType: string
+  sourceId?: string | null
+  destType: string
+  destId?: string | null
+  amount: number
+  charges: number
+  agentId: string
+  createdAt: string
+}
+

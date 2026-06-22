@@ -8,6 +8,11 @@ import type {
   FloatTopup,
   Network,
   Transaction,
+  Bank,
+  BankCommissionTier,
+  BankTransaction,
+  BankFloatTopup,
+  Transfer,
 } from "./types"
 
 /** Tiny deterministic PRNG so seed data is identical on server and client (no hydration mismatch). */
@@ -208,3 +213,196 @@ export const debts: Debt[] = [
     dueDate: ts(-5, 0, 0),
   },
 ]
+
+export const banks: Bank[] = [
+  { id: "crdb", name: "CRDB Wakala", floatBalance: 5_000_000, threshold: 1_500_000, active: true },
+  { id: "nmb", name: "NMB Wakala", floatBalance: 3_500_000, threshold: 1_200_000, active: true },
+  { id: "nbc", name: "NBC Wakala", floatBalance: 2_000_000, threshold: 1_000_000, active: true },
+  { id: "tpb", name: "TPB Wakala", floatBalance: 1_500_000, threshold: 800_000, active: true },
+  { id: "equity", name: "Equity Agent Banking", floatBalance: 1_200_000, threshold: 800_000, active: true },
+]
+
+export const bankCommissionTiers: BankCommissionTier[] = [
+  // CRDB Deposit
+  { id: "bct-crdb-d1", bankId: "crdb", service: "deposit", min: 1_000, max: 9_999, commission: 80 },
+  { id: "bct-crdb-d2", bankId: "crdb", service: "deposit", min: 10_000, max: 99_999, commission: 350 },
+  { id: "bct-crdb-d3", bankId: "crdb", service: "deposit", min: 100_000, max: 499_999, commission: 750 },
+  { id: "bct-crdb-d4", bankId: "crdb", service: "deposit", min: 500_000, max: 999_999_999, commission: 1500 },
+  // CRDB Withdrawal
+  { id: "bct-crdb-w1", bankId: "crdb", service: "withdrawal", min: 1_000, max: 9_999, commission: 200 },
+  { id: "bct-crdb-w2", bankId: "crdb", service: "withdrawal", min: 10_000, max: 99_999, commission: 800 },
+  { id: "bct-crdb-w3", bankId: "crdb", service: "withdrawal", min: 100_000, max: 499_999, commission: 1600 },
+  { id: "bct-crdb-w4", bankId: "crdb", service: "withdrawal", min: 500_000, max: 999_999_999, commission: 3200 },
+  // CRDB flat rate inquiries/statements
+  { id: "bct-crdb-bi", bankId: "crdb", service: "balance_inquiry", min: 0, max: 999_999_999, commission: 150 },
+  { id: "bct-crdb-ms", bankId: "crdb", service: "mini_statement", min: 0, max: 999_999_999, commission: 200 },
+  { id: "bct-crdb-ao", bankId: "crdb", service: "account_opening", min: 0, max: 999_999_999, commission: 1500 },
+  { id: "bct-crdb-cw", bankId: "crdb", service: "cardless_withdrawal", min: 0, max: 999_999_999, commission: 1000 },
+
+  // NMB Deposit
+  { id: "bct-nmb-d1", bankId: "nmb", service: "deposit", min: 1_000, max: 9_999, commission: 70 },
+  { id: "bct-nmb-d2", bankId: "nmb", service: "deposit", min: 10_000, max: 99_999, commission: 320 },
+  { id: "bct-nmb-d3", bankId: "nmb", service: "deposit", min: 100_000, max: 499_999, commission: 700 },
+  { id: "bct-nmb-d4", bankId: "nmb", service: "deposit", min: 500_000, max: 999_999_999, commission: 1400 },
+  // NMB Withdrawal
+  { id: "bct-nmb-w1", bankId: "nmb", service: "withdrawal", min: 1_000, max: 9_999, commission: 180 },
+  { id: "bct-nmb-w2", bankId: "nmb", service: "withdrawal", min: 10_000, max: 99_999, commission: 750 },
+  { id: "bct-nmb-w3", bankId: "nmb", service: "withdrawal", min: 100_000, max: 499_999, commission: 1500 },
+  { id: "bct-nmb-w4", bankId: "nmb", service: "withdrawal", min: 500_000, max: 999_999_999, commission: 3000 },
+  // NMB Flat Services
+  { id: "bct-nmb-bi", bankId: "nmb", service: "balance_inquiry", min: 0, max: 999_999_999, commission: 120 },
+  { id: "bct-nmb-ms", bankId: "nmb", service: "mini_statement", min: 0, max: 999_999_999, commission: 180 },
+  { id: "bct-nmb-ao", bankId: "nmb", service: "account_opening", min: 0, max: 999_999_999, commission: 1200 },
+  { id: "bct-nmb-cw", bankId: "nmb", service: "cardless_withdrawal", min: 0, max: 999_999_999, commission: 900 },
+
+  // NBC Deposit
+  { id: "bct-nbc-d1", bankId: "nbc", service: "deposit", min: 1_000, max: 9_999, commission: 75 },
+  { id: "bct-nbc-d2", bankId: "nbc", service: "deposit", min: 10_000, max: 99_999, commission: 330 },
+  { id: "bct-nbc-d3", bankId: "nbc", service: "deposit", min: 100_000, max: 499_999, commission: 720 },
+  { id: "bct-nbc-d4", bankId: "nbc", service: "deposit", min: 500_000, max: 999_999_999, commission: 1450 },
+  // NBC Withdrawal
+  { id: "bct-nbc-w1", bankId: "nbc", service: "withdrawal", min: 1_000, max: 9_999, commission: 190 },
+  { id: "bct-nbc-w2", bankId: "nbc", service: "withdrawal", min: 10_000, max: 99_999, commission: 780 },
+  { id: "bct-nbc-w3", bankId: "nbc", service: "withdrawal", min: 100_000, max: 499_999, commission: 1550 },
+  { id: "bct-nbc-w4", bankId: "nbc", service: "withdrawal", min: 500_000, max: 999_999_999, commission: 3100 },
+  // NBC Flat
+  { id: "bct-nbc-bi", bankId: "nbc", service: "balance_inquiry", min: 0, max: 999_999_999, commission: 130 },
+  { id: "bct-nbc-ms", bankId: "nbc", service: "mini_statement", min: 0, max: 999_999_999, commission: 190 },
+  { id: "bct-nbc-ao", bankId: "nbc", service: "account_opening", min: 0, max: 999_999_999, commission: 1300 },
+  { id: "bct-nbc-cw", bankId: "nbc", service: "cardless_withdrawal", min: 0, max: 999_999_999, commission: 950 },
+
+  // TPB Deposit
+  { id: "bct-tpb-d1", bankId: "tpb", service: "deposit", min: 1_000, max: 9_999, commission: 65 },
+  { id: "bct-tpb-d2", bankId: "tpb", service: "deposit", min: 10_000, max: 99_999, commission: 300 },
+  { id: "bct-tpb-d3", bankId: "tpb", service: "deposit", min: 100_000, max: 499_999, commission: 650 },
+  { id: "bct-tpb-d4", bankId: "tpb", service: "deposit", min: 500_000, max: 999_999_999, commission: 1300 },
+  // TPB Withdrawal
+  { id: "bct-tpb-w1", bankId: "tpb", service: "withdrawal", min: 1_000, max: 9_999, commission: 170 },
+  { id: "bct-tpb-w2", bankId: "tpb", service: "withdrawal", min: 10_000, max: 99_999, commission: 700 },
+  { id: "bct-tpb-w3", bankId: "tpb", service: "withdrawal", min: 100_000, max: 499_999, commission: 1400 },
+  { id: "bct-tpb-w4", bankId: "tpb", service: "withdrawal", min: 500_000, max: 999_999_999, commission: 2800 },
+  // TPB Flat
+  { id: "bct-tpb-bi", bankId: "tpb", service: "balance_inquiry", min: 0, max: 999_999_999, commission: 110 },
+  { id: "bct-tpb-ms", bankId: "tpb", service: "mini_statement", min: 0, max: 999_999_999, commission: 170 },
+  { id: "bct-tpb-ao", bankId: "tpb", service: "account_opening", min: 0, max: 999_999_999, commission: 1100 },
+  { id: "bct-tpb-cw", bankId: "tpb", service: "cardless_withdrawal", min: 0, max: 999_999_999, commission: 850 },
+
+  // Equity Deposit
+  { id: "bct-eq-d1", bankId: "equity", service: "deposit", min: 1_000, max: 9_999, commission: 70 },
+  { id: "bct-eq-d2", bankId: "equity", service: "deposit", min: 10_000, max: 99_999, commission: 320 },
+  { id: "bct-eq-d3", bankId: "equity", service: "deposit", min: 100_000, max: 499_999, commission: 700 },
+  { id: "bct-eq-d4", bankId: "equity", service: "deposit", min: 500_000, max: 999_999_999, commission: 1400 },
+  // Equity Withdrawal
+  { id: "bct-eq-w1", bankId: "equity", service: "withdrawal", min: 1_000, max: 9_999, commission: 180 },
+  { id: "bct-eq-w2", bankId: "equity", service: "withdrawal", min: 10_000, max: 99_999, commission: 750 },
+  { id: "bct-eq-w3", bankId: "equity", service: "withdrawal", min: 100_000, max: 499_999, commission: 1500 },
+  { id: "bct-eq-w4", bankId: "equity", service: "withdrawal", min: 500_000, max: 999_999_999, commission: 3000 },
+  // Equity Flat
+  { id: "bct-eq-bi", bankId: "equity", service: "balance_inquiry", min: 0, max: 999_999_999, commission: 120 },
+  { id: "bct-eq-ms", bankId: "equity", service: "mini_statement", min: 0, max: 999_999_999, commission: 180 },
+  { id: "bct-eq-ao", bankId: "equity", service: "account_opening", min: 0, max: 999_999_999, commission: 1200 },
+  { id: "bct-eq-cw", bankId: "equity", service: "cardless_withdrawal", min: 0, max: 999_999_999, commission: 900 },
+]
+
+export function bankCommissionFor(
+  tiers: BankCommissionTier[],
+  bankId: string,
+  service: string,
+  amount: number
+): number {
+  const tier = tiers.find(
+    (t) => t.bankId === bankId && t.service === service && amount >= t.min && amount <= t.max
+  )
+  return tier ? tier.commission : 0
+}
+
+function buildBankTransactions(): BankTransaction[] {
+  const rng = makeRng(88)
+  const list: BankTransaction[] = []
+  const bankIds = ["crdb", "nmb", "nbc", "tpb", "equity"]
+  const services = ["deposit", "withdrawal", "balance_inquiry", "mini_statement", "cardless_withdrawal", "account_opening"]
+  const amounts = [15_000, 30_000, 50_000, 100_000, 200_000, 500_000, 1_000_000]
+  
+  let counter = 2000
+  for (let day = 10; day >= 0; day--) {
+    const count = 3 + Math.floor(rng() * 5)
+    for (let i = 0; i < count; i++) {
+      const type = services[Math.floor(rng() * services.length)] as any
+      const bankId = bankIds[Math.floor(rng() * bankIds.length)]
+      const isMonetary = type === "deposit" || type === "withdrawal" || type === "cardless_withdrawal"
+      const amount = isMonetary ? amounts[Math.floor(rng() * amounts.length)] : 0
+      const fee = isMonetary ? Math.round(amount * 0.01) : 500
+      const commission = bankCommissionFor(bankCommissionTiers, bankId, type, amount)
+      
+      const [customer, phone] = customers[Math.floor(rng() * customers.length)]
+      const hour = 9 + Math.floor(rng() * 9)
+      const minute = Math.floor(rng() * 60)
+      
+      list.push({
+        id: `btx-${counter}`,
+        ref: `BKN${counter}`,
+        type,
+        bankId,
+        accountNumber: isMonetary ? `0152${Math.floor(10000000 + rng() * 90000000)}` : null,
+        accountName: isMonetary ? customer : null,
+        amount,
+        fee,
+        commission,
+        tellerNumber: `TL-${Math.floor(100 + rng() * 900)}`,
+        customerName: customer,
+        customerPhone: phone,
+        referenceNumber: type === "cardless_withdrawal" ? `OTP-${Math.floor(100000 + rng() * 900000)}` : `REF${counter}`,
+        notes: "Seed record",
+        agentId: rng() > 0.5 ? "agent-1" : "agent-2",
+        createdAt: ts(day, hour, minute),
+      })
+      counter++
+    }
+  }
+  return list.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+}
+
+export const bankTransactions: BankTransaction[] = buildBankTransactions()
+
+export const bankFloatTopups: BankFloatTopup[] = [
+  { id: "bft-1", bankId: "crdb", amount: 3_000_000, source: "HQ Transfer", note: "CRDB restock", agentId: "agent-0", createdAt: ts(5, 10, 15) },
+  { id: "bft-2", bankId: "nmb", amount: 2_500_000, source: "Cash Deposit", note: "Refill from cash drawer", agentId: "agent-1", createdAt: ts(3, 11, 0) },
+  { id: "bft-3", bankId: "nbc", amount: 1_000_000, source: "HQ Transfer", note: "Initial topup", agentId: "agent-0", createdAt: ts(7, 9, 30) },
+]
+
+export const transfers: Transfer[] = [
+  {
+    id: "tf-1",
+    sourceType: "cash",
+    sourceId: null,
+    destType: "network_float",
+    destId: "mp",
+    amount: 1_000_000,
+    charges: 1000,
+    agentId: "agent-1",
+    createdAt: ts(4, 14, 0),
+  },
+  {
+    id: "tf-2",
+    sourceType: "bank_float",
+    sourceId: "crdb",
+    destType: "bank_float",
+    destId: "nmb",
+    amount: 500_000,
+    charges: 1500,
+    agentId: "agent-0",
+    createdAt: ts(2, 11, 30),
+  },
+  {
+    id: "tf-3",
+    sourceType: "cash",
+    sourceId: null,
+    destType: "bank_float",
+    destId: "equity",
+    amount: 800_000,
+    charges: 0,
+    agentId: "agent-2",
+    createdAt: ts(1, 16, 45),
+  },
+]
+

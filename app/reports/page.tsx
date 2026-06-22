@@ -18,6 +18,8 @@ export default function ReportsPage() {
     networks,
     cashBalance,
     debts,
+    bankTransactions,
+    banks,
   } = useData()
 
   const [reportType, setReportType] = useState<"daily" | "weekly" | "monthly">("daily")
@@ -32,21 +34,66 @@ export default function ReportsPage() {
       return withinDays(t.createdAt, limitDays)
     })
 
+    const bankTxs = bankTransactions.filter((bt) => {
+      if (reportType === "daily") return isToday(bt.createdAt)
+      return withinDays(bt.createdAt, limitDays)
+    })
+
     const exps = expenses.filter((e) => {
       if (reportType === "daily") return isToday(e.createdAt)
       return withinDays(e.createdAt, limitDays)
     })
 
-    return { txs, exps, days: limitDays }
-  }, [transactions, expenses, reportType])
+    return { txs, bankTxs, exps, days: limitDays }
+  }, [transactions, bankTransactions, expenses, reportType])
+
+  const serviceNames: Record<string, string> = {
+    deposit: "Bank Deposit",
+    withdrawal: "Bank Withdrawal",
+    balance_inquiry: "Bank Inquiry",
+    mini_statement: "Bank Statement",
+    cardless_withdrawal: "Bank Cardless",
+    account_opening: "Bank Opening Assist",
+  }
+
+  // Combined Transactions list sorted chronologically
+  const combinedTxs = useMemo(() => {
+    const list = [
+      ...data.txs.map((t) => ({
+        ref: t.ref,
+        createdAt: t.createdAt,
+        provider: networks.find((n) => n.id === t.networkId)?.name || t.networkId,
+        type: t.type === "deposit" ? "Deposit" : "Withdrawal",
+        amount: t.amount,
+        commission: t.commission,
+        customer: t.customer,
+        phone: t.customerPhone,
+      })),
+      ...data.bankTxs.map((bt) => ({
+        ref: bt.ref,
+        createdAt: bt.createdAt,
+        provider: banks.find((b) => b.id === bt.bankId)?.name || bt.bankId,
+        type: serviceNames[bt.type] || bt.type,
+        amount: bt.amount,
+        commission: bt.commission,
+        customer: bt.customerName || bt.accountNumber || "Walk-in Client",
+        phone: bt.customerPhone || "",
+      })),
+    ]
+    return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  }, [data.txs, data.bankTxs, networks, banks])
 
   // Summaries
   const summaries = useMemo(() => {
-    const txCount = data.txs.length
-    const volume = data.txs.reduce((s, t) => s + t.amount, 0)
-    const deposits = data.txs.filter((t) => t.type === "deposit").reduce((s, t) => s + t.amount, 0)
-    const withdrawals = data.txs.filter((t) => t.type === "withdrawal").reduce((s, t) => s + t.amount, 0)
-    const commission = data.txs.reduce((s, t) => s + t.commission, 0)
+    const txCount = combinedTxs.length
+    const volume = combinedTxs.reduce((s, t) => s + t.amount, 0)
+    const deposits = combinedTxs
+      .filter((t) => t.type.toLowerCase().includes("deposit"))
+      .reduce((s, t) => s + t.amount, 0)
+    const withdrawals = combinedTxs
+      .filter((t) => t.type.toLowerCase().includes("withdrawal") || t.type.toLowerCase().includes("cardless"))
+      .reduce((s, t) => s + t.amount, 0)
+    const commission = combinedTxs.reduce((s, t) => s + t.commission, 0)
     const expTotal = data.exps.reduce((s, e) => s + e.amount, 0)
     const netProfit = commission - expTotal
 
@@ -59,7 +106,7 @@ export default function ReportsPage() {
       expTotal,
       netProfit,
     }
-  }, [data])
+  }, [combinedTxs, data])
 
   // CSV Generator
   const handleExportCSV = () => {
@@ -68,19 +115,18 @@ export default function ReportsPage() {
       try {
         // Construct CSV string for transactions
         let csvContent = "data:text/csv;charset=utf-8,"
-        csvContent += "Reference,Date,Network,Type,Amount (TZS),Commission (TZS),Customer,Phone\n"
+        csvContent += "Reference,Date,Provider/Bank,Type,Amount (TZS),Commission (TZS),Customer,Phone\n"
 
-        for (const tx of data.txs) {
-          const netName = networks.find((n) => n.id === tx.networkId)?.name || tx.networkId
+        for (const tx of combinedTxs) {
           const row = [
             tx.ref,
             tx.createdAt,
-            `"${netName}"`,
+            `"${tx.provider}"`,
             tx.type,
             tx.amount,
             tx.commission,
             `"${tx.customer}"`,
-            `"${tx.customerPhone}"`,
+            `"${tx.phone}"`,
           ].join(",")
           csvContent += row + "\n"
         }
@@ -152,9 +198,9 @@ export default function ReportsPage() {
                 <tr>
                   <th>Reference</th>
                   <th>Date & Time</th>
-                  <th>Network</th>
+                  <th>Provider/Bank</th>
                   <th>Type</th>
-                  <th>Customer Name</th>
+                  <th>Customer Name/Acct</th>
                   <th>Customer Phone</th>
                   <th>Amount (TZS)</th>
                   <th>Commission (TZS)</th>
@@ -163,16 +209,15 @@ export default function ReportsPage() {
               <tbody>
         `
 
-        for (const tx of data.txs) {
-          const netName = networks.find((n) => n.id === tx.networkId)?.name || tx.networkId
+        for (const tx of combinedTxs) {
           htmlContent += `
             <tr>
               <td>${tx.ref}</td>
               <td>${tx.createdAt}</td>
-              <td>${netName}</td>
+              <td>${tx.provider}</td>
               <td>${tx.type}</td>
               <td>${tx.customer}</td>
-              <td>${tx.customerPhone}</td>
+              <td>${tx.phone}</td>
               <td>${tx.amount}</td>
               <td>${tx.commission}</td>
             </tr>
@@ -351,15 +396,14 @@ export default function ReportsPage() {
           const isNetProfitPositive = netProfit >= 0
 
           // HTML table rows for transactions
-          const txRows = data.txs.length === 0
+          const txRows = combinedTxs.length === 0
             ? '<tr><td colspan="6" style="text-align: center; color: #64748b; padding: 8px;">No transactions logged in this period.</td></tr>'
-            : data.txs.map((tx) => {
-                const netName = networks.find((n) => n.id === tx.networkId)?.name || tx.networkId
+            : combinedTxs.map((tx) => {
                 return `
                   <tr>
                     <td style="padding: 6px; border-bottom: 1px solid #cbd5e1;">${tx.ref}</td>
                     <td style="padding: 6px; border-bottom: 1px solid #cbd5e1;">${new Date(tx.createdAt).toLocaleDateString()}</td>
-                    <td style="padding: 6px; border-bottom: 1px solid #cbd5e1;">${netName}</td>
+                    <td style="padding: 6px; border-bottom: 1px solid #cbd5e1;">${tx.provider}</td>
                     <td style="padding: 6px; border-bottom: 1px solid #cbd5e1;">${tx.type.toUpperCase()}</td>
                     <td style="padding: 6px; border-bottom: 1px solid #cbd5e1; text-align: right;">${formatTZS(tx.amount)}</td>
                     <td style="padding: 6px; border-bottom: 1px solid #cbd5e1; text-align: right;">${formatTZS(tx.commission)}</td>

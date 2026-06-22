@@ -24,11 +24,14 @@ model Agent {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  transactions Transaction[]
-  floatTopups  FloatTopup[]
-  cashEntries  CashEntry[]
-  expenses     Expense[]
-  debts        Debt[]
+  transactions     Transaction[]
+  floatTopups      FloatTopup[]
+  cashEntries      CashEntry[]
+  expenses         Expense[]
+  debts            Debt[]
+  bankTransactions BankTransaction[]
+  bankFloatTopups  BankFloatTopup[]
+  transfers        Transfer[]
 }
 
 model Network {
@@ -169,4 +172,95 @@ model DebtPayment {
   createdAt DateTime @default(now())
 
   @@index([debtId])
+}
+
+enum BankTxType {
+  deposit
+  withdrawal
+  balance_inquiry
+  mini_statement
+  cardless_withdrawal
+  account_opening
+}
+
+model Bank {
+  id           String               @id
+  name         String
+  floatBalance Float                @default(0)
+  threshold    Float                @default(0)
+  active       Boolean              @default(true)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  tiers        BankCommissionTier[]
+  transactions BankTransaction[]
+  floatTopups  BankFloatTopup[]
+}
+
+model BankCommissionTier {
+  id         String   @id @default(uuid())
+  bankId     String
+  bank       Bank     @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  service    String   // e.g. "deposit", "withdrawal", "balance_inquiry", "mini_statement", "cardless_withdrawal", "account_opening"
+  min        Float    @default(0)
+  max        Float    @default(999999999)
+  commission Float
+  createdAt  DateTime @default(now())
+
+  @@index([bankId])
+}
+
+model BankTransaction {
+  id              String     @id @default(uuid())
+  ref             String     @unique
+  type            BankTxType
+  bankId          String
+  bank            Bank       @relation(fields: [bankId], references: [id], onDelete: Restrict)
+  accountNumber   String?
+  accountName     String?
+  amount          Float      @default(0)
+  fee             Float      @default(0)
+  commission      Float      @default(0)
+  tellerNumber    String?
+  customerName    String?
+  customerPhone   String?
+  referenceNumber String?
+  notes           String?
+  agentId         String
+  agent           Agent      @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  createdAt       DateTime   @default(now())
+
+  @@index([agentId])
+  @@index([bankId])
+  @@index([createdAt])
+}
+
+model BankFloatTopup {
+  id        String   @id @default(uuid())
+  bankId    String
+  bank      Bank     @relation(fields: [bankId], references: [id], onDelete: Restrict)
+  amount    Float
+  source    String
+  note      String
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+
+  @@index([agentId])
+  @@index([bankId])
+}
+
+model Transfer {
+  id         String   @id @default(uuid())
+  sourceType String   // "cash", "network_float", "bank_float"
+  sourceId   String?  // networkId or bankId (null if cash)
+  destType   String   // "cash", "network_float", "bank_float"
+  destId     String?  // networkId or bankId (null if cash)
+  amount     Float
+  charges    Float    @default(0)
+  agentId    String   // Authorized by agent
+  agent      Agent    @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  createdAt  DateTime @default(now())
+
+  @@index([agentId])
+  @@index([createdAt])
 }

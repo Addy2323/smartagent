@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Wallet,
   LogOut,
+  Landmark,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -35,6 +36,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useData } from "@/lib/store"
@@ -45,9 +47,17 @@ const operations = [
   { title: "Commissions", url: "/commissions", icon: HandCoins },
 ]
 
+const agentBanking = [
+  { title: "Bank Dashboard", url: "/agent-banking", icon: LayoutDashboard },
+  { title: "Bank Transactions", url: "/agent-banking/transactions", icon: ArrowLeftRight },
+  { title: "Bank Float", url: "/agent-banking/float", icon: Wallet },
+  { title: "Bank Commissions", url: "/agent-banking/commissions", icon: HandCoins },
+]
+
 const treasury = [
   { title: "Float", url: "/float", icon: Wallet },
   { title: "Cash", url: "/cash", icon: Banknote },
+  { title: "Transfers", url: "/transfers", icon: ArrowLeftRight },
 ]
 
 const finance = [
@@ -66,6 +76,7 @@ function NavSection({
   items: { title: string; url: string; icon: typeof LayoutDashboard }[]
   pathname: string
 }) {
+  const { isMobile, setOpenMobile } = useSidebar()
   return (
     <SidebarGroup>
       <SidebarGroupLabel>{label}</SidebarGroupLabel>
@@ -77,7 +88,14 @@ function NavSection({
                 isActive={pathname === item.url}
                 tooltip={item.title}
                 render={
-                  <Link href={item.url}>
+                  <Link
+                    href={item.url}
+                    onClick={() => {
+                      if (isMobile) {
+                        setOpenMobile(false)
+                      }
+                    }}
+                  >
                     <item.icon className="size-4" />
                     <span>{item.title}</span>
                   </Link>
@@ -110,6 +128,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <NavSection label="Operations" items={operations} pathname={pathname} />
+        <NavSection label="Agent Banking" items={agentBanking} pathname={pathname} />
         <NavSection label="Treasury" items={treasury} pathname={pathname} />
         <NavSection label="Finance" items={finance} pathname={pathname} />
         {role === "super_admin" && (

@@ -144,7 +144,7 @@ export default function TransactionsPage() {
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="tx-type">Transaction Type</Label>
                   <Select
@@ -198,7 +198,7 @@ export default function TransactionsPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="tx-customer">Customer Name (Optional)</Label>
                   <Input
@@ -245,22 +245,22 @@ export default function TransactionsPage() {
 
       {/* Filters Card */}
       <Card>
-        <CardContent className="flex flex-wrap items-center gap-4 p-4">
-          <div className="relative min-w-[200px] flex-1">
+        <CardContent className="flex flex-col sm:flex-row sm:items-center gap-4 p-4">
+          <div className="relative w-full sm:min-w-[200px] sm:flex-1">
             <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
             <Input
               placeholder="Search reference, customer..."
-              className="pl-8"
+              className="pl-8 w-full"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-2 flex-1 min-w-[120px] sm:flex-initial">
               <span className="text-xs text-muted-foreground">Type:</span>
               <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="h-8 w-[130px] text-xs">
+                <SelectTrigger className="h-8 w-full sm:w-[130px] text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -271,10 +271,10 @@ export default function TransactionsPage() {
               </Select>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-1 min-w-[120px] sm:flex-initial">
               <span className="text-xs text-muted-foreground">Network:</span>
               <Select value={filterNetwork} onValueChange={setFilterNetwork}>
-                <SelectTrigger className="h-8 w-[130px] text-xs">
+                <SelectTrigger className="h-8 w-full sm:w-[130px] text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -289,10 +289,10 @@ export default function TransactionsPage() {
             </div>
 
             {role === "super_admin" && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-1 min-w-[120px] sm:flex-initial">
                 <span className="text-xs text-muted-foreground">Agent:</span>
                 <Select value={filterAgent} onValueChange={setFilterAgent}>
-                  <SelectTrigger className="h-8 w-[130px] text-xs">
+                  <SelectTrigger className="h-8 w-full sm:w-[130px] text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

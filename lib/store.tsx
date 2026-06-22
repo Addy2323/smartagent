@@ -24,8 +24,14 @@ import type {
   Role,
   Transaction,
   TxType,
+  Bank,
+  BankCommissionTier,
+  BankTransaction,
+  BankFloatTopup,
+  Transfer,
+  BankTxType,
 } from "./types"
-import { commissionFor } from "./seed"
+import { commissionFor, bankCommissionFor } from "./seed"
 
 const SEED_CASH_BALANCE = 0
 
@@ -57,10 +63,17 @@ interface DataContextValue {
   expenseCategories: ExpenseCategory[]
   debts: Debt[]
   cashBalance: number
+  banks: Bank[]
+  bankCommissionTiers: BankCommissionTier[]
+  bankTransactions: BankTransaction[]
+  bankFloatTopups: BankFloatTopup[]
+  transfers: Transfer[]
   // helpers
   networkById: (id: string) => Network | undefined
   agentById: (id: string) => Agent | undefined
   previewCommission: (type: TxType, networkId: string, amount: number) => number
+  bankById: (id: string) => Bank | undefined
+  previewBankCommission: (service: string, bankId: string, amount: number) => number
   // actions
   addTransaction: (input: NewTransactionInput) => Promise<void>
   addFloatTopup: (input: { networkId: string; amount: number; source: string; note: string; fromCash: boolean }) => Promise<void>
@@ -68,11 +81,35 @@ interface DataContextValue {
   addExpense: (input: { categoryId: string; amount: number; description: string; receipt?: string | null }) => Promise<void>
   addDebt: (input: { kind: DebtKind; party: string; partyPhone: string; principal: number; description: string; dueDate: string }) => Promise<void>
   addDebtPayment: (debtId: string, amount: number) => Promise<void>
+  addBankTransaction: (input: {
+    type: BankTxType
+    bankId: string
+    accountNumber?: string | null
+    accountName?: string | null
+    amount: number
+    fee: number
+    tellerNumber?: string | null
+    customerName?: string | null
+    customerPhone?: string | null
+    referenceNumber?: string | null
+    notes?: string | null
+  }) => Promise<void>
+  addBankFloatTopup: (input: { bankId: string; amount: number; source: string; note: string; fromCash: boolean }) => Promise<void>
+  reconcileBankFloat: (bankId: string, portalBalance: number, notes: string) => Promise<any>
+  addTransfer: (input: {
+    sourceType: string
+    sourceId?: string | null
+    destType: string
+    destId?: string | null
+    amount: number
+    charges: number
+  }) => Promise<void>
   // settings
   addNetwork: (input: { name: string; code: string; floatBalance: number; threshold: number }) => Promise<void>
   updateNetworkThreshold: (id: string, threshold: number) => Promise<void>
   addExpenseCategory: (name: string) => Promise<void>
   updateTier: (id: string, field: "deposit" | "withdrawal", value: number) => Promise<void>
+  updateBankCommissionTier: (id: string, commission: number) => Promise<void>
   addAgent: (input: { name: string; email: string; phone?: string | null; role: Role; password?: string; pin?: string }) => Promise<void>
   toggleAgentActive: (id: string, active: boolean) => Promise<void>
   updateAgent: (id: string, data: { name?: string; email?: string; phone?: string | null; role?: Role; active?: boolean }) => Promise<void>
@@ -94,6 +131,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([])
   const [debts, setDebts] = useState<Debt[]>([])
+  const [banks, setBanks] = useState<Bank[]>([])
+  const [bankCommissionTiers, setBankCommissionTiers] = useState<BankCommissionTier[]>([])
+  const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([])
+  const [bankFloatTopups, setBankFloatTopups] = useState<BankFloatTopup[]>([])
+  const [transfers, setTransfers] = useState<Transfer[]>([])
   
   const [loading, setLoading] = useState(true)
   const [isOffline, setIsOffline] = useState(false)
@@ -179,11 +221,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setExpenses([])
         setExpenseCategories([])
         setDebts([])
+        setBanks([])
+        setBankCommissionTiers([])
+        setBankTransactions([])
+        setBankFloatTopups([])
+        setTransfers([])
         return
       }
 
       // If logged in, fetch all secure data using apiFetch
-      const [agentsData, networksData, txsData, topupsData, cashData, expData, debtsData] = await Promise.all([
+      const [
+        agentsData,
+        networksData,
+        txsData,
+        topupsData,
+        cashData,
+        expData,
+        debtsData,
+        banksData,
+        bankTxsData,
+        bankTopupsData,
+        transfersData,
+      ] = await Promise.all([
         apiFetch("/api/agents"),
         apiFetch("/api/networks"),
         apiFetch("/api/transactions"),
@@ -191,6 +250,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         apiFetch("/api/cash"),
         apiFetch("/api/expenses"),
         apiFetch("/api/debts"),
+        apiFetch("/api/agent-banking/banks"),
+        apiFetch("/api/agent-banking/transactions"),
+        apiFetch("/api/agent-banking/float"),
+        apiFetch("/api/transfers"),
       ])
 
       setAgents(agentsData)
@@ -202,6 +265,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setExpenses(expData.expenses || [])
       setExpenseCategories(expData.categories || [])
       setDebts(debtsData)
+      setBanks(banksData)
+      setBankCommissionTiers(banksData.flatMap((b: any) => b.tiers || []))
+      setBankTransactions(bankTxsData)
+      setBankFloatTopups(bankTopupsData)
+      setTransfers(transfersData)
     } catch (err: any) {
       const isAuthError =
         err.message?.includes("Unauthorized") ||
@@ -288,16 +356,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
     for (const tx of transactions) {
       bal += tx.type === "deposit" ? tx.amount : -tx.amount
     }
+    for (const btx of bankTransactions) {
+      if (btx.type === "deposit") {
+        bal += btx.amount
+      } else if (btx.type === "withdrawal" || btx.type === "cardless_withdrawal") {
+        bal -= btx.amount
+      }
+    }
     return bal
-  }, [cashEntries, transactions])
+  }, [cashEntries, transactions, bankTransactions])
 
   const networkById = useCallback((id: string) => networks.find((n) => n.id === id), [networks])
   const agentById = useCallback((id: string) => agents.find((a) => a.id === id), [agents])
+  const bankById = useCallback((id: string) => banks.find((b) => b.id === id), [banks])
 
   const previewCommission = useCallback(
     (type: TxType, networkId: string, amount: number) =>
       commissionFor(commissionTiers, networkId, type, amount),
     [commissionTiers],
+  )
+
+  const previewBankCommission = useCallback(
+    (service: string, bankId: string, amount: number) =>
+      bankCommissionFor(bankCommissionTiers, bankId, service, amount),
+    [bankCommissionTiers],
   )
 
   // Actions
@@ -368,6 +450,97 @@ export function DataProvider({ children }: { children: ReactNode }) {
       reloadData()
     } catch (err: any) {
       toast.error(err.message || "Failed to add cash entry")
+    }
+  }, [apiFetch, reloadData])
+
+  const addBankTransaction = useCallback(async (input: any) => {
+    if (isOffline) {
+      const commission = previewBankCommission(input.type, input.bankId, input.amount)
+      const mockTx: BankTransaction = {
+        id: `offline-${Date.now()}`,
+        ref: `BKN-${Math.floor(100000 + Math.random() * 900000)}`,
+        type: input.type,
+        bankId: input.bankId,
+        accountNumber: input.accountNumber || null,
+        accountName: input.accountName || null,
+        amount: input.amount,
+        fee: input.fee || 0,
+        commission,
+        tellerNumber: input.tellerNumber || "TL-OFF",
+        customerName: input.customerName || "Walk-in",
+        customerPhone: input.customerPhone || "",
+        referenceNumber: input.referenceNumber || null,
+        notes: input.notes || "Offline save",
+        agentId: currentAgentId,
+        createdAt: new Date().toISOString(),
+      }
+      setBankTransactions((prev) => [mockTx, ...prev])
+      
+      // Update bank float
+      setBanks((prev) =>
+        prev.map((b) =>
+          b.id === input.bankId
+            ? { ...b, floatBalance: b.floatBalance + (input.type === "deposit" ? -input.amount : input.amount) }
+            : b,
+        ),
+      )
+      
+      queueOffline("/api/agent-banking/transactions", input)
+      return
+    }
+
+    try {
+      await apiFetch("/api/agent-banking/transactions", {
+        method: "POST",
+        body: JSON.stringify(input),
+      })
+      toast.success("Bank transaction recorded successfully!")
+      reloadData()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to record transaction")
+      throw err
+    }
+  }, [isOffline, apiFetch, reloadData, currentAgentId, previewBankCommission, queueOffline])
+
+  const addBankFloatTopup = useCallback(async (input: { bankId: string; amount: number; source: string; note: string; fromCash: boolean }) => {
+    try {
+      await apiFetch("/api/agent-banking/float", {
+        method: "POST",
+        body: JSON.stringify(input),
+      })
+      toast.success("Bank float topup recorded!")
+      reloadData()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add bank float topup")
+    }
+  }, [apiFetch, reloadData])
+
+  const reconcileBankFloat = useCallback(async (bankId: string, portalBalance: number, notes: string) => {
+    try {
+      const res = await apiFetch("/api/agent-banking/float/reconciliation", {
+        method: "POST",
+        body: JSON.stringify({ bankId, portalBalance, notes }),
+      })
+      toast.success("Float reconciliation finished successfully!")
+      reloadData()
+      return res
+    } catch (err: any) {
+      toast.error(err.message || "Failed float reconciliation")
+      throw err
+    }
+  }, [apiFetch, reloadData])
+
+  const addTransfer = useCallback(async (input: any) => {
+    try {
+      await apiFetch("/api/transfers", {
+        method: "POST",
+        body: JSON.stringify(input),
+      })
+      toast.success("Transfer recorded successfully!")
+      reloadData()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to record transfer")
+      throw err
     }
   }, [apiFetch, reloadData])
 
@@ -471,6 +644,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [apiFetch, reloadData, commissionTiers])
 
+  const updateBankCommissionTier = useCallback(async (id: string, commission: number) => {
+    try {
+      await apiFetch("/api/agent-banking/commissions", {
+        method: "PUT",
+        body: JSON.stringify({ id, commission }),
+      })
+      toast.success("Bank commission rate updated!")
+      reloadData()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update commission rate")
+    }
+  }, [apiFetch, reloadData])
+
   const addAgent = useCallback(async (input: { name: string; email: string; phone?: string | null; role: Role; password?: string; pin?: string }) => {
     try {
       await apiFetch("/api/agents", {
@@ -556,16 +742,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
     networkById,
     agentById,
     previewCommission,
+    banks,
+    bankCommissionTiers,
+    bankTransactions,
+    bankFloatTopups,
+    transfers,
+    bankById,
+    previewBankCommission,
     addTransaction,
     addFloatTopup,
     addCashEntry,
     addExpense,
     addDebt,
     addDebtPayment,
+    addBankTransaction,
+    addBankFloatTopup,
+    reconcileBankFloat,
+    addTransfer,
     addNetwork,
     updateNetworkThreshold,
     addExpenseCategory,
     updateTier,
+    updateBankCommissionTier,
     addAgent,
     toggleAgentActive,
     updateAgent,
