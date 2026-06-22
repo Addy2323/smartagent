@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { Wifi, WifiOff, Download } from "lucide-react"
+import { Wifi, WifiOff, Download, Loader2 } from "lucide-react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -109,12 +109,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const title = titles[pathname] ?? "SmartAgent Manager"
 
   useEffect(() => {
-    if (!loading && !currentAgent && pathname !== "/login") {
-      router.push("/login")
+    if (!loading) {
+      if (!currentAgent && pathname !== "/") {
+        router.push("/")
+      } else if (currentAgent && pathname === "/login") {
+        router.push("/")
+      }
     }
   }, [currentAgent, loading, pathname, router])
 
-  if (pathname === "/login") {
+  if (loading) {
+    return (
+      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background gap-3">
+        <Loader2 className="size-8 animate-spin text-primary" />
+        <span className="text-sm text-muted-foreground font-medium">Initializing secure gateway...</span>
+      </div>
+    )
+  }
+
+  if (!currentAgent || pathname === "/login") {
     return <main className="flex min-h-screen w-full flex-col bg-background">{children}</main>
   }
 
