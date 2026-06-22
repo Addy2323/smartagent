@@ -1,0 +1,23 @@
+{
+  "name": "SmartAgent Manager",
+  "short_name": "SmartAgent",
+  "description": "Business management system for mobile money agents — track transactions, float, cash, commissions, expenses, debts, and profit.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#065f46",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

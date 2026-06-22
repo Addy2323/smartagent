@@ -1,0 +1,172 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  super_admin
+  agent
+}
+
+model Agent {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String                           // No plaintext default — must be hashed at creation
+  pin       String                           // No plaintext default — must be hashed at creation
+  phone     String?  @unique
+  role      Role     @default(agent)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions Transaction[]
+  floatTopups  FloatTopup[]
+  cashEntries  CashEntry[]
+  expenses     Expense[]
+  debts        Debt[]
+}
+
+model Network {
+  id           String           @id
+  name         String
+  code         String           @unique      // Enforce unique network codes
+  floatBalance Float            @default(0)
+  threshold    Float            @default(0)
+  active       Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  tiers        CommissionTier[]
+  transactions Transaction[]
+  floatTopups  FloatTopup[]
+}
+
+model CommissionTier {
+  id         String   @id @default(uuid())
+  networkId  String
+  network    Network  @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  min        Float
+  max        Float
+  deposit    Float
+  withdrawal Float
+  createdAt  DateTime @default(now())
+
+  @@index([networkId])                       // Index for fast network lookups
+}
+
+enum TxType {
+  deposit
+  withdrawal
+}
+
+model Transaction {
+  id            String   @id @default(uuid())
+  ref           String   @unique
+  type          TxType
+  networkId     String
+  network       Network  @relation(fields: [networkId], references: [id], onDelete: Restrict)
+  amount        Float
+  commission    Float
+  customer      String
+  customerPhone String
+  agentId       String
+  agent         Agent    @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  createdAt     DateTime @default(now())
+
+  @@index([agentId])                         // Index for agent-scoped queries
+  @@index([networkId])                       // Index for network-scoped queries
+  @@index([createdAt])                       // Index for date-range report queries
+}
+
+model FloatTopup {
+  id        String   @id @default(uuid())
+  networkId String
+  network   Network  @relation(fields: [networkId], references: [id], onDelete: Restrict)
+  amount    Float
+  source    String
+  note      String
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+
+  @@index([agentId])
+  @@index([networkId])
+}
+
+enum CashDirection {
+  in
+  out
+}
+
+model CashEntry {
+  id        String        @id @default(uuid())
+  direction CashDirection
+  amount    Float
+  reason    String
+  agentId   String
+  agent     Agent         @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  createdAt DateTime      @default(now())
+
+  @@index([agentId])
+  @@index([createdAt])
+}
+
+model ExpenseCategory {
+  id        String    @id
+  name      String    @unique              // Enforce unique category names
+  createdAt DateTime  @default(now())
+  expenses  Expense[]
+}
+
+model Expense {
+  id          String          @id @default(uuid())
+  categoryId  String
+  category    ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  amount      Float
+  description String
+  receipt     String?
+  agentId     String
+  agent       Agent           @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  createdAt   DateTime        @default(now())
+
+  @@index([agentId])
+  @@index([categoryId])
+  @@index([createdAt])
+}
+
+enum DebtKind {
+  receivable
+  payable
+}
+
+model Debt {
+  id          String        @id @default(uuid())
+  kind        DebtKind
+  party       String
+  partyPhone  String
+  principal   Float
+  description String
+  agentId     String
+  agent       Agent           @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  dueDate     DateTime
+  payments    DebtPayment[]
+
+  @@index([agentId])
+  @@index([dueDate])
+}
+
+model DebtPayment {
+  id        String   @id @default(uuid())
+  debtId    String
+  debt      Debt     @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  amount    Float
+  createdAt DateTime @default(now())
+
+  @@index([debtId])
+}
