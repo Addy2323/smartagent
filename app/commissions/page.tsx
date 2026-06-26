@@ -97,8 +97,7 @@ export default function CommissionsPage() {
     const wdVal = Number(editWd)
     if (isNaN(depVal) || isNaN(wdVal)) return
 
-    await updateTier(tierId, "deposit", depVal)
-    await updateTier(tierId, "withdrawal", wdVal)
+    await updateTier(tierId, depVal, wdVal)
     setEditingTierId(null)
   }
 

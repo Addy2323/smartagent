@@ -110,7 +110,7 @@ interface DataContextValue {
   updateNetworkThreshold: (id: string, threshold: number) => Promise<void>
   updateBankThreshold: (id: string, threshold: number) => Promise<void>
   addExpenseCategory: (name: string) => Promise<void>
-  updateTier: (id: string, field: "deposit" | "withdrawal", value: number) => Promise<void>
+  updateTier: (id: string, deposit: number, withdrawal: number) => Promise<void>
   updateBankCommissionTier: (id: string, commission: number) => Promise<void>
   addAgent: (input: { name: string; email: string; phone?: string | null; role: Role; password?: string; pin?: string }) => Promise<void>
   toggleAgentActive: (id: string, active: boolean) => Promise<void>
@@ -669,27 +669,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [apiFetch, reloadData])
 
-  const updateTier = useCallback(async (id: string, field: "deposit" | "withdrawal", value: number) => {
+  const updateTier = useCallback(async (id: string, deposit: number, withdrawal: number) => {
     try {
-      const tier = commissionTiers.find((t) => t.id === id)
-      if (!tier) return
-      
-      const payload = {
-        id,
-        deposit: field === "deposit" ? value : tier.deposit,
-        withdrawal: field === "withdrawal" ? value : tier.withdrawal,
-      }
-      
       await apiFetch("/api/networks/tiers", {
         method: "PUT",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ id, deposit, withdrawal }),
       })
-      toast.success("Commission rate updated!")
+      toast.success("Commission rates updated!")
       reloadData()
     } catch (err: any) {
-      toast.error(err.message || "Failed to update rate")
+      toast.error(err.message || "Failed to update rates")
     }
-  }, [apiFetch, reloadData, commissionTiers])
+  }, [apiFetch, reloadData])
 
   const updateBankCommissionTier = useCallback(async (id: string, commission: number) => {
     try {
