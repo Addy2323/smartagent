@@ -231,6 +231,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return
       }
 
+      // Helper to fetch data and return default value on error
+      const fetchSafe = async (url: string, defaultValue: any) => {
+        try {
+          return await apiFetch(url)
+        } catch (e: any) {
+          const isAuthError =
+            e.message?.includes("Unauthorized") ||
+            e.message?.includes("HTTP 401") ||
+            e.message?.includes("Session cookie")
+          if (isAuthError) {
+            throw e
+          }
+          console.error(`Error loading data from ${url}:`, e.message || e)
+          return defaultValue
+        }
+      }
+
       // If logged in, fetch all secure data using apiFetch
       const [
         agentsData,
@@ -245,30 +262,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
         bankTopupsData,
         transfersData,
       ] = await Promise.all([
-        apiFetch("/api/agents"),
-        apiFetch("/api/networks"),
-        apiFetch("/api/transactions"),
-        apiFetch("/api/float"),
-        apiFetch("/api/cash"),
-        apiFetch("/api/expenses"),
-        apiFetch("/api/debts"),
-        apiFetch("/api/agent-banking/banks"),
-        apiFetch("/api/agent-banking/transactions"),
-        apiFetch("/api/agent-banking/float"),
-        apiFetch("/api/transfers"),
+        fetchSafe("/api/agents", []),
+        fetchSafe("/api/networks", []),
+        fetchSafe("/api/transactions", []),
+        fetchSafe("/api/float", []),
+        fetchSafe("/api/cash", []),
+        fetchSafe("/api/expenses", { expenses: [], categories: [] }),
+        fetchSafe("/api/debts", []),
+        fetchSafe("/api/agent-banking/banks", []),
+        fetchSafe("/api/agent-banking/transactions", []),
+        fetchSafe("/api/agent-banking/float", []),
+        fetchSafe("/api/transfers", []),
       ])
 
       setAgents(agentsData)
       setNetworks(networksData)
-      setCommissionTiers(networksData.flatMap((n: any) => n.tiers || []))
+      setCommissionTiers((networksData || []).flatMap((n: any) => n?.tiers || []))
       setTransactions(txsData)
       setFloatTopups(topupsData)
       setCashEntries(cashData)
-      setExpenses(expData.expenses || [])
-      setExpenseCategories(expData.categories || [])
+      setExpenses(expData?.expenses || [])
+      setExpenseCategories(expData?.categories || [])
       setDebts(debtsData)
       setBanks(banksData)
-      setBankCommissionTiers(banksData.flatMap((b: any) => b.tiers || []))
+      setBankCommissionTiers((banksData || []).flatMap((b: any) => b?.tiers || []))
       setBankTransactions(bankTxsData)
       setBankFloatTopups(bankTopupsData)
       setTransfers(transfersData)
