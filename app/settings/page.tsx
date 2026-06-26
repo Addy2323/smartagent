@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { AlertCircle, Bell, Database, KeyRound, Layers, Plus, ShieldCheck, UserRound, Users, Pencil, Eye, EyeOff, Landmark } from "lucide-react"
+import { AlertCircle, Bell, Database, KeyRound, Layers, Plus, ShieldCheck, UserRound, Users, Pencil, Eye, EyeOff, Landmark, Trash } from "lucide-react"
 import { useData } from "@/lib/store"
 import { formatTZS } from "@/lib/format"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,6 +30,8 @@ export default function SettingsPage() {
     updateAgent,
     addNetwork,
     updateNetworkThreshold,
+    updateNetworkDetails,
+    deleteNetwork,
     addBank,
     updateBankThreshold,
     addExpenseCategory,
@@ -46,6 +48,13 @@ export default function SettingsPage() {
   const [agentPhone, setAgentPhone] = useState("")
   const [agentRole, setAgentRole] = useState<"super_admin" | "agent">("agent")
   const [isAgentSubmitting, setIsAgentSubmitting] = useState(false)
+
+  // Edit Network modal states
+  const [isEditNetOpen, setIsEditNetOpen] = useState(false)
+  const [editingNetwork, setEditingNetwork] = useState<any>(null)
+  const [editNetName, setEditNetName] = useState("")
+  const [editNetCode, setEditNetCode] = useState("")
+  const [isEditNetSubmitting, setIsEditNetSubmitting] = useState(false)
 
   // New Bank Form states
   const [bankName, setBankName] = useState("")
@@ -213,6 +222,36 @@ export default function SettingsPage() {
       setIsNetSubmitting(false)
     }
   }
+
+  const startEditNetwork = (net: any) => {
+    setEditingNetwork(net)
+    setEditNetName(net.name)
+    setEditNetCode(net.code)
+    setIsEditNetOpen(true)
+  }
+
+  const handleEditNetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingNetwork || !editNetName || !editNetCode) return
+
+    try {
+      setIsEditNetSubmitting(true)
+      await updateNetworkDetails(editingNetwork.id, editNetName, editNetCode)
+      setIsEditNetOpen(false)
+      setEditingNetwork(null)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsEditNetSubmitting(false)
+    }
+  }
+
+  const handleDeleteNetwork = async (id: string) => {
+    if (confirm("Are you sure you want to delete this network provider? This will remove all associated commission tiers.")) {
+      await deleteNetwork(id)
+    }
+  }
+
 
   const handleBankSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -784,6 +823,7 @@ export default function SettingsPage() {
                         <TableHead>Code</TableHead>
                         <TableHead className="text-right">Float Balance</TableHead>
                         <TableHead className="w-[180px] text-right pr-6">Low Alert limit (TZS)</TableHead>
+                        {role === "super_admin" && <TableHead className="w-[100px] text-center">Actions</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -810,12 +850,79 @@ export default function SettingsPage() {
                               </span>
                             )}
                           </TableCell>
+                          {role === "super_admin" && (
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <Button
+                                  size="xs"
+                                  variant="outline"
+                                  onClick={() => startEditNetwork(net)}
+                                  className="h-6 w-6 p-0 hover:bg-slate-100"
+                                >
+                                  <Pencil className="size-3 text-muted-foreground" />
+                                  <span className="sr-only">Edit</span>
+                                </Button>
+                                <Button
+                                  size="xs"
+                                  variant="destructive"
+                                  onClick={() => handleDeleteNetwork(net.id)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Trash className="size-3" />
+                                  <span className="sr-only">Delete</span>
+                                </Button>
+                              </div>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </CardContent>
               </Card>
+
+              {/* Edit Network Dialog */}
+              <Dialog open={isEditNetOpen} onOpenChange={setIsEditNetOpen}>
+                <DialogContent className="max-w-[400px]">
+                  <DialogHeader>
+                    <DialogTitle>Edit Network Provider</DialogTitle>
+                    <DialogDescription>Modify the mobile provider name and unique code identifier.</DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleEditNetSubmit} className="space-y-4 py-2">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="edit-net-name">Provider Name</Label>
+                      <Input
+                        id="edit-net-name"
+                        required
+                        value={editNetName}
+                        onChange={(e) => setEditNetName(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="edit-net-code">Provider Code</Label>
+                      <Input
+                        id="edit-net-code"
+                        required
+                        value={editNetCode}
+                        onChange={(e) => setEditNetCode(e.target.value)}
+                      />
+                    </div>
+                    <DialogFooter className="pt-2 border-t flex gap-2 justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsEditNetOpen(false)}
+                        className="h-9 px-4"
+                      >
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={isEditNetSubmitting} className="h-9 px-4">
+                        {isEditNetSubmitting ? "Saving..." : "Save Changes"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
 

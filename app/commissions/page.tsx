@@ -24,6 +24,8 @@ export default function CommissionsPage() {
   const [editingTierId, setEditingTierId] = useState<string | null>(null)
   const [editDep, setEditDep] = useState("")
   const [editWd, setEditWd] = useState("")
+  const [editMin, setEditMin] = useState("")
+  const [editMax, setEditMax] = useState("")
 
   // Selected network in rate configurator
   const [selectedConfigNet, setSelectedConfigNet] = useState(networks[0]?.id || "mp")
@@ -86,18 +88,22 @@ export default function CommissionsPage() {
     return Array.from(monthsMap.values())
   }, [transactions])
 
-  const handleEditTier = (tierId: string, currentDep: number, currentWd: number) => {
+  const handleEditTier = (tierId: string, currentDep: number, currentWd: number, currentMin: number, currentMax: number) => {
     setEditingTierId(tierId)
     setEditDep(String(currentDep))
     setEditWd(String(currentWd))
+    setEditMin(String(currentMin))
+    setEditMax(String(currentMax))
   }
 
   const handleSaveTier = async (tierId: string) => {
     const depVal = Number(editDep)
     const wdVal = Number(editWd)
-    if (isNaN(depVal) || isNaN(wdVal)) return
+    const minVal = Number(editMin)
+    const maxVal = Number(editMax)
+    if (isNaN(depVal) || isNaN(wdVal) || isNaN(minVal) || isNaN(maxVal)) return
 
-    await updateTier(tierId, depVal, wdVal)
+    await updateTier(tierId, depVal, wdVal, minVal, maxVal)
     setEditingTierId(null)
   }
 
@@ -206,7 +212,25 @@ export default function CommissionsPage() {
                     return (
                       <TableRow key={tier.id} className="hover:bg-muted/30">
                         <TableCell className="font-mono text-xs font-semibold">
-                          {formatTZS(tier.min)} - {formatTZS(tier.max)}
+                          {isEditing ? (
+                            <div className="flex items-center gap-1.5 max-w-[200px]">
+                              <Input
+                                type="number"
+                                className="h-7 w-20 text-xs font-mono p-1"
+                                value={editMin}
+                                onChange={(e) => setEditMin(e.target.value)}
+                              />
+                              <span className="text-muted-foreground">-</span>
+                              <Input
+                                type="number"
+                                className="h-7 w-20 text-xs font-mono p-1"
+                                value={editMax}
+                                onChange={(e) => setEditMax(e.target.value)}
+                              />
+                            </div>
+                          ) : (
+                            `${formatTZS(tier.min)} - ${formatTZS(tier.max)}`
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-mono text-xs">
                           {isEditing ? (
@@ -248,7 +272,7 @@ export default function CommissionsPage() {
                                 size="icon-xs"
                                 variant="outline"
                                 onClick={() =>
-                                  handleEditTier(tier.id, tier.deposit, tier.withdrawal)
+                                  handleEditTier(tier.id, tier.deposit, tier.withdrawal, tier.min, tier.max)
                                 }
                                 className="size-7"
                               >

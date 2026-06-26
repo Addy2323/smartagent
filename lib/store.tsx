@@ -108,10 +108,12 @@ interface DataContextValue {
   addNetwork: (input: { name: string; code: string; floatBalance: number; threshold: number }) => Promise<void>
   addBank: (input: { name: string; id: string; floatBalance: number; threshold: number }) => Promise<void>
   updateNetworkThreshold: (id: string, threshold: number) => Promise<void>
+  updateNetworkDetails: (id: string, name: string, code: string) => Promise<void>
+  deleteNetwork: (id: string) => Promise<void>
   updateBankThreshold: (id: string, threshold: number) => Promise<void>
   addExpenseCategory: (name: string) => Promise<void>
-  updateTier: (id: string, deposit: number, withdrawal: number) => Promise<void>
-  updateBankCommissionTier: (id: string, commission: number) => Promise<void>
+  updateTier: (id: string, deposit: number, withdrawal: number, min?: number, max?: number) => Promise<void>
+  updateBankCommissionTier: (id: string, commission: number, min?: number, max?: number) => Promise<void>
   addAgent: (input: { name: string; email: string; phone?: string | null; role: Role; password?: string; pin?: string }) => Promise<void>
   toggleAgentActive: (id: string, active: boolean) => Promise<void>
   updateAgent: (id: string, data: { name?: string; email?: string; phone?: string | null; role?: Role; active?: boolean }) => Promise<void>
@@ -656,6 +658,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [apiFetch, reloadData])
 
+  const updateNetworkDetails = useCallback(async (id: string, name: string, code: string) => {
+    try {
+      await apiFetch("/api/networks", {
+        method: "PUT",
+        body: JSON.stringify({ id, name, code }),
+      })
+      toast.success("Mobile network updated successfully!")
+      reloadData()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update mobile network")
+    }
+  }, [apiFetch, reloadData])
+
+  const deleteNetwork = useCallback(async (id: string) => {
+    try {
+      await apiFetch(`/api/networks?id=${id}`, {
+        method: "DELETE",
+      })
+      toast.success("Mobile network deleted successfully!")
+      reloadData()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete network")
+    }
+  }, [apiFetch, reloadData])
+
+
   const addExpenseCategory = useCallback(async (name: string) => {
     try {
       await apiFetch("/api/expenses", {
@@ -669,11 +697,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [apiFetch, reloadData])
 
-  const updateTier = useCallback(async (id: string, deposit: number, withdrawal: number) => {
+  const updateTier = useCallback(async (id: string, deposit: number, withdrawal: number, min?: number, max?: number) => {
     try {
       await apiFetch("/api/networks/tiers", {
         method: "PUT",
-        body: JSON.stringify({ id, deposit, withdrawal }),
+        body: JSON.stringify({ id, deposit, withdrawal, min, max }),
       })
       toast.success("Commission rates updated!")
       reloadData()
@@ -682,11 +710,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [apiFetch, reloadData])
 
-  const updateBankCommissionTier = useCallback(async (id: string, commission: number) => {
+  const updateBankCommissionTier = useCallback(async (id: string, commission: number, min?: number, max?: number) => {
     try {
       await apiFetch("/api/agent-banking/commissions", {
         method: "PUT",
-        body: JSON.stringify({ id, commission }),
+        body: JSON.stringify({ id, commission, min, max }),
       })
       toast.success("Bank commission rate updated!")
       reloadData()
@@ -800,6 +828,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     addNetwork,
     addBank,
     updateNetworkThreshold,
+    updateNetworkDetails,
+    deleteNetwork,
     updateBankThreshold,
     addExpenseCategory,
     updateTier,

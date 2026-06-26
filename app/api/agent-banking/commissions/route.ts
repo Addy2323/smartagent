@@ -57,17 +57,26 @@ export async function PUT(req: Request) {
     const session = await getAuthSession()
     enforceAdmin(session.role)
 
-    const { id, commission } = await req.json()
+    const { id, commission, min, max } = await req.json()
 
-    if (!id || commission === undefined) {
-      return NextResponse.json({ error: "Tier ID and Commission are required" }, { status: 400 })
+    if (!id) {
+      return NextResponse.json({ error: "Tier ID is required" }, { status: 400 })
+    }
+
+    const updateData: any = {}
+    if (commission !== undefined) {
+      updateData.commission = Number(commission)
+    }
+    if (min !== undefined) {
+      updateData.min = Number(min)
+    }
+    if (max !== undefined) {
+      updateData.max = Number(max)
     }
 
     const updated = await prisma.bankCommissionTier.update({
       where: { id },
-      data: {
-        commission: Number(commission),
-      },
+      data: updateData,
     })
     return NextResponse.json(updated)
   } catch (error: any) {

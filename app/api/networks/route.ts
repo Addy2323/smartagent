@@ -98,3 +98,71 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 }
+
+export async function PUT(req: Request) {
+  try {
+    const session = await getAuthSession()
+    enforceAdmin(session.role)
+
+    const { id, name, code } = await req.json()
+
+    if (!id || typeof id !== "string") {
+      return NextResponse.json({ error: "Network ID is required" }, { status: 400 })
+    }
+
+    const updateData: any = {}
+    if (name !== undefined) {
+      if (typeof name !== "string" || name.trim().length < 1) {
+        return NextResponse.json({ error: "Name must be a valid string" }, { status: 400 })
+      }
+      updateData.name = name.trim()
+    }
+    if (code !== undefined) {
+      if (typeof code !== "string" || code.trim().length < 1) {
+        return NextResponse.json({ error: "Code must be a valid string" }, { status: 400 })
+      }
+      updateData.code = code.trim()
+    }
+
+    const updated = await prisma.network.update({
+      where: { id },
+      data: updateData,
+    })
+    return NextResponse.json(updated)
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 })
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const session = await getAuthSession()
+    enforceAdmin(session.role)
+
+    const { searchParams } = new URL(req.url)
+    const id = searchParams.get("id")
+
+    if (!id) {
+      return NextResponse.json({ error: "Network ID is required" }, { status: 400 })
+    }
+
+    // Check if network is referenced in transactions or float topups
+    const hasTxs = await prisma.transaction.findFirst({ where: { networkId: id } })
+    if (hasTxs) {
+      return NextResponse.json({ error: "Cannot delete network because it has associated transaction records" }, { status: 400 })
+    }
+
+    const hasTopups = await prisma.floatTopup.findFirst({ where: { networkId: id } })
+    if (hasTopups) {
+      return NextResponse.json({ error: "Cannot delete network because it has associated float top-up records" }, { status: 400 })
+    }
+
+    await prisma.network.delete({
+      where: { id },
+    })
+
+    return NextResponse.json({ success: true, message: "Network deleted successfully" })
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 })
+  }
+}

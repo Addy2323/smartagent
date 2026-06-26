@@ -51,6 +51,8 @@ export default function BankCommissionsPage() {
     commission: number
   } | null>(null)
   const [editCommissionVal, setEditCommissionVal] = useState("")
+  const [editMinVal, setEditMinVal] = useState("")
+  const [editMaxVal, setEditMaxVal] = useState("")
   const [isUpdating, setIsUpdating] = useState(false)
 
   // Selected Bank
@@ -76,6 +78,8 @@ export default function BankCommissionsPage() {
     if (role !== "super_admin") return
     setEditTier(tier)
     setEditCommissionVal(tier.commission.toString())
+    setEditMinVal(tier.min.toString())
+    setEditMaxVal(tier.max.toString())
     setEditOpen(true)
   }
 
@@ -85,7 +89,11 @@ export default function BankCommissionsPage() {
 
     try {
       setIsUpdating(true)
-      await updateBankCommissionTier(editTier.id, Number(editCommissionVal))
+      const commission = Number(editCommissionVal)
+      const min = ["deposit", "withdrawal"].includes(editTier.service) ? Number(editMinVal) : undefined
+      const max = ["deposit", "withdrawal"].includes(editTier.service) ? Number(editMaxVal) : undefined
+
+      await updateBankCommissionTier(editTier.id, commission, min, max)
       setEditOpen(false)
       setEditTier(null)
     } catch (err) {
@@ -312,11 +320,27 @@ export default function BankCommissionsPage() {
                   <p className="text-sm">Flat rate reward per execution</p>
                 </div>
               ) : (
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Amount Range Band</p>
-                  <p className="text-sm font-mono text-slate-700 dark:text-slate-300">
-                    {formatTZS(editTier.min)} - {editTier.max >= 999999999 ? "Above" : formatTZS(editTier.max)}
-                  </p>
+                <div className="grid grid-cols-2 gap-4 mt-1">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="edit-min">Min Amount (TZS)</Label>
+                    <Input
+                      id="edit-min"
+                      type="number"
+                      required
+                      value={editMinVal}
+                      onChange={(e) => setEditMinVal(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="edit-max">Max Amount (TZS)</Label>
+                    <Input
+                      id="edit-max"
+                      type="number"
+                      required
+                      value={editMaxVal}
+                      onChange={(e) => setEditMaxVal(e.target.value)}
+                    />
+                  </div>
                 </div>
               )}
 
