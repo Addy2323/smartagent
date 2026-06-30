@@ -104,7 +104,7 @@ export async function PUT(req: Request) {
     const session = await getAuthSession()
     enforceAdmin(session.role)
 
-    const { id, name, code } = await req.json()
+    const { id, name, code, floatBalance } = await req.json()
 
     if (!id || typeof id !== "string") {
       return NextResponse.json({ error: "Network ID is required" }, { status: 400 })
@@ -122,6 +122,12 @@ export async function PUT(req: Request) {
         return NextResponse.json({ error: "Code must be a valid string" }, { status: 400 })
       }
       updateData.code = code.trim()
+    }
+    if (floatBalance !== undefined) {
+      if (isNaN(Number(floatBalance)) || Number(floatBalance) < 0) {
+        return NextResponse.json({ error: "Float balance must be a non-negative number" }, { status: 400 })
+      }
+      updateData.floatBalance = Number(floatBalance)
     }
 
     const updated = await prisma.network.update({

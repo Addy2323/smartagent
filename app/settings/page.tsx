@@ -34,6 +34,8 @@ export default function SettingsPage() {
     deleteNetwork,
     addBank,
     updateBankThreshold,
+    updateBankDetails,
+    deleteBank,
     addExpenseCategory,
     seedDatabase,
     loading,
@@ -54,7 +56,15 @@ export default function SettingsPage() {
   const [editingNetwork, setEditingNetwork] = useState<any>(null)
   const [editNetName, setEditNetName] = useState("")
   const [editNetCode, setEditNetCode] = useState("")
+  const [editNetFloat, setEditNetFloat] = useState("")
   const [isEditNetSubmitting, setIsEditNetSubmitting] = useState(false)
+
+  // Edit Bank modal states
+  const [isEditBankOpen, setIsEditBankOpen] = useState(false)
+  const [editingBank, setEditingBank] = useState<any>(null)
+  const [editBankName, setEditBankName] = useState("")
+  const [editBankFloat, setEditBankFloat] = useState("")
+  const [isEditBankSubmitting, setIsEditBankSubmitting] = useState(false)
 
   // New Bank Form states
   const [bankName, setBankName] = useState("")
@@ -227,22 +237,52 @@ export default function SettingsPage() {
     setEditingNetwork(net)
     setEditNetName(net.name)
     setEditNetCode(net.code)
+    setEditNetFloat(net.floatBalance.toString())
     setIsEditNetOpen(true)
   }
 
   const handleEditNetSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!editingNetwork || !editNetName || !editNetCode) return
+    if (!editingNetwork || !editNetName || !editNetCode || editNetFloat === "" || isNaN(Number(editNetFloat))) return
 
     try {
       setIsEditNetSubmitting(true)
-      await updateNetworkDetails(editingNetwork.id, editNetName, editNetCode)
+      await updateNetworkDetails(editingNetwork.id, editNetName, editNetCode, Number(editNetFloat))
       setIsEditNetOpen(false)
       setEditingNetwork(null)
     } catch (err) {
       console.error(err)
     } finally {
       setIsEditNetSubmitting(false)
+    }
+  }
+
+  const startEditBank = (bank: any) => {
+    setEditingBank(bank)
+    setEditBankName(bank.name)
+    setEditBankFloat(bank.floatBalance.toString())
+    setIsEditBankOpen(true)
+  }
+
+  const handleEditBankSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingBank || !editBankName || editBankFloat === "" || isNaN(Number(editBankFloat))) return
+
+    try {
+      setIsEditBankSubmitting(true)
+      await updateBankDetails(editingBank.id, editBankName, Number(editBankFloat))
+      setIsEditBankOpen(false)
+      setEditingBank(null)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsEditBankSubmitting(false)
+    }
+  }
+
+  const handleDeleteBank = async (id: string) => {
+    if (confirm("Are you sure you want to delete this bank partner? This will remove all associated commission tiers.")) {
+      await deleteBank(id)
     }
   }
 
@@ -907,6 +947,16 @@ export default function SettingsPage() {
                         onChange={(e) => setEditNetCode(e.target.value)}
                       />
                     </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="edit-net-float">Float Balance (TZS)</Label>
+                      <Input
+                        id="edit-net-float"
+                        type="number"
+                        required
+                        value={editNetFloat}
+                        onChange={(e) => setEditNetFloat(e.target.value)}
+                      />
+                    </div>
                     <DialogFooter className="pt-2 border-t flex gap-2 justify-end">
                       <Button
                         type="button"
@@ -1004,6 +1054,7 @@ export default function SettingsPage() {
                         <TableHead>Bank ID / Code</TableHead>
                         <TableHead className="text-right">Float Balance</TableHead>
                         <TableHead className="w-[180px] text-right pr-6">Low Alert limit (TZS)</TableHead>
+                        {role === "super_admin" && <TableHead className="w-[100px] text-center">Actions</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1030,12 +1081,80 @@ export default function SettingsPage() {
                               </span>
                             )}
                           </TableCell>
+                          {role === "super_admin" && (
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <Button
+                                  size="xs"
+                                  variant="outline"
+                                  onClick={() => startEditBank(bank)}
+                                  className="h-6 w-6 p-0 hover:bg-slate-100"
+                                >
+                                  <Pencil className="size-3 text-muted-foreground" />
+                                  <span className="sr-only">Edit</span>
+                                </Button>
+                                <Button
+                                  size="xs"
+                                  variant="destructive"
+                                  onClick={() => handleDeleteBank(bank.id)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Trash className="size-3" />
+                                  <span className="sr-only">Delete</span>
+                                </Button>
+                              </div>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </CardContent>
               </Card>
+
+              {/* Edit Bank Dialog */}
+              <Dialog open={isEditBankOpen} onOpenChange={setIsEditBankOpen}>
+                <DialogContent className="max-w-[400px]">
+                  <DialogHeader>
+                    <DialogTitle>Edit Bank Partner</DialogTitle>
+                    <DialogDescription>Modify the bank partner name and current float balance.</DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleEditBankSubmit} className="space-y-4 py-2">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="edit-bank-name">Bank Name</Label>
+                      <Input
+                        id="edit-bank-name"
+                        required
+                        value={editBankName}
+                        onChange={(e) => setEditBankName(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="edit-bank-float">Float Balance (TZS)</Label>
+                      <Input
+                        id="edit-bank-float"
+                        type="number"
+                        required
+                        value={editBankFloat}
+                        onChange={(e) => setEditBankFloat(e.target.value)}
+                      />
+                    </div>
+                    <DialogFooter className="pt-2 border-t flex gap-2 justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsEditBankOpen(false)}
+                        className="h-9 px-4"
+                      >
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={isEditBankSubmitting} className="h-9 px-4">
+                        {isEditBankSubmitting ? "Saving..." : "Save Changes"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
 
