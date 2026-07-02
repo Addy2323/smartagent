@@ -122,3 +122,118 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 }
+
+export async function PUT(req: Request) {
+  try {
+    const session = await getAuthSession()
+    const {
+      id,
+      type,
+      accountNumber,
+      accountName,
+      amount,
+      fee,
+      tellerNumber,
+      customerName,
+      customerPhone,
+      referenceNumber,
+      notes,
+    } = await req.json()
+
+    if (!id || typeof id !== "string") {
+      return NextResponse.json({ error: "Transaction ID is required" }, { status: 400 })
+    }
+
+    // 1. Fetch existing transaction
+    const oldTx = await prisma.bankTransaction.findUnique({
+      where: { id },
+    })
+
+    if (!oldTx) {
+      return NextResponse.json({ error: "Transaction not found" }, { status: 404 })
+    }
+
+    // Authorization: standard agents can only edit their own transactions
+    if (session.role !== "super_admin" && oldTx.agentId !== session.agentId) {
+      return NextResponse.json({ error: "Unauthorized to edit this transaction" }, { status: 403 })
+    }
+
+    // 2. Validate inputs
+    const newType = type || oldTx.type
+    const newAmount = amount !== undefined ? Number(amount) : oldTx.amount
+    const newFee = fee !== undefined ? Number(fee) : oldTx.fee
+
+    if (newAmount < 0 || newFee < 0) {
+      return NextResponse.json({ error: "Amount and Fee must be non-negative" }, { status: 400 })
+    }
+
+    // 3. Find commission for this service and amount if changed
+    let newCommission = oldTx.commission
+    if (type !== undefined || amount !== undefined) {
+      const bank = await prisma.bank.findUnique({
+        where: { id: oldTx.bankId },
+        include: { tiers: true },
+      })
+      if (bank) {
+        const tier = bank.tiers.find(
+          (t) => t.service === newType && newAmount >= t.min && newAmount <= t.max
+        )
+        newCommission = tier ? tier.commission : 0
+      }
+    }
+
+    // 4. Calculate bank float balance correction
+    let oldFloatReversal = 0
+    if (oldTx.type === "deposit") {
+      oldFloatReversal = oldTx.amount
+    } else if (oldTx.type === "withdrawal" || oldTx.type === "cardless_withdrawal") {
+      oldFloatReversal = -oldTx.amount
+    }
+
+    let newFloatApplication = 0
+    if (newType === "deposit") {
+      newFloatApplication = -newAmount
+    } else if (newType === "withdrawal" || newType === "cardless_withdrawal") {
+      newFloatApplication = newAmount
+    }
+
+    const bankFloatCorrection = oldFloatReversal + newFloatApplication
+
+    // 5. Execute transaction update
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedTx = await tx.bankTransaction.update({
+        where: { id },
+        data: {
+          type: newType,
+          accountNumber: accountNumber !== undefined ? (accountNumber || null) : oldTx.accountNumber,
+          accountName: accountName !== undefined ? (accountName || null) : oldTx.accountName,
+          amount: newAmount,
+          fee: newFee,
+          commission: newCommission,
+          tellerNumber: tellerNumber !== undefined ? (tellerNumber || null) : oldTx.tellerNumber,
+          customerName: customerName !== undefined ? (customerName || null) : oldTx.customerName,
+          customerPhone: customerPhone !== undefined ? (customerPhone || null) : oldTx.customerPhone,
+          ref: referenceNumber !== undefined ? referenceNumber : oldTx.ref,
+          referenceNumber: referenceNumber !== undefined ? referenceNumber : oldTx.referenceNumber,
+          notes: notes !== undefined ? (notes || null) : oldTx.notes,
+        },
+      })
+
+      if (bankFloatCorrection !== 0) {
+        await tx.bank.update({
+          where: { id: oldTx.bankId },
+          data: {
+            floatBalance: { increment: bankFloatCorrection },
+          },
+        })
+      }
+
+      return updatedTx
+    })
+
+    return NextResponse.json(result)
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 })
+  }
+}
+

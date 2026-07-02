@@ -94,6 +94,25 @@ interface DataContextValue {
     referenceNumber?: string | null
     notes?: string | null
   }) => Promise<void>
+  updateTransaction: (id: string, input: {
+    type?: TxType
+    amount?: number
+    customer?: string
+    customerPhone?: string
+    ref?: string
+  }) => Promise<void>
+  updateBankTransaction: (id: string, input: {
+    type?: BankTxType
+    accountNumber?: string | null
+    accountName?: string | null
+    amount?: number
+    fee?: number
+    tellerNumber?: string | null
+    customerName?: string | null
+    customerPhone?: string | null
+    referenceNumber?: string | null
+    notes?: string | null
+  }) => Promise<void>
   addBankFloatTopup: (input: { bankId: string; amount: number; source: string; note: string; fromCash: boolean }) => Promise<void>
   reconcileBankFloat: (bankId: string, portalBalance: number, notes: string) => Promise<any>
   addTransfer: (input: {
@@ -450,6 +469,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [isOffline, apiFetch, reloadData, currentAgentId, previewCommission, queueOffline])
 
+  const updateTransaction = useCallback(async (id: string, input: any) => {
+    try {
+      await apiFetch("/api/transactions", {
+        method: "PUT",
+        body: JSON.stringify({ id, ...input }),
+      })
+      toast.success("Transaction details updated!")
+      reloadData()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update transaction details")
+      throw err
+    }
+  }, [apiFetch, reloadData])
+
   const addFloatTopup = useCallback(async (input: { networkId: string; amount: number; source: string; note: string; fromCash: boolean }) => {
     try {
       await apiFetch("/api/float", {
@@ -524,6 +557,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
       throw err
     }
   }, [isOffline, apiFetch, reloadData, currentAgentId, previewBankCommission, queueOffline])
+
+  const updateBankTransaction = useCallback(async (id: string, input: any) => {
+    try {
+      await apiFetch("/api/agent-banking/transactions", {
+        method: "PUT",
+        body: JSON.stringify({ id, ...input }),
+      })
+      toast.success("Bank transaction details updated!")
+      reloadData()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update bank transaction details")
+      throw err
+    }
+  }, [apiFetch, reloadData])
 
   const addBankFloatTopup = useCallback(async (input: { bankId: string; amount: number; source: string; note: string; fromCash: boolean }) => {
     try {
@@ -849,6 +896,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     addDebt,
     addDebtPayment,
     addBankTransaction,
+    updateBankTransaction,
+    updateTransaction,
     addBankFloatTopup,
     reconcileBankFloat,
     addTransfer,

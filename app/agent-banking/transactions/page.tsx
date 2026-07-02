@@ -12,6 +12,7 @@ import {
   CreditCard,
   Phone,
   AlertTriangle,
+  Pencil,
 } from "lucide-react"
 import { useData } from "@/lib/store"
 import { formatDateTime, formatTZS } from "@/lib/format"
@@ -54,6 +55,7 @@ export default function BankTransactionsPage() {
     role,
     currentAgent,
     addBankTransaction,
+    updateBankTransaction,
     previewBankCommission,
   } = useData()
 
@@ -72,7 +74,70 @@ export default function BankTransactionsPage() {
   const [customerPhone, setCustomerPhone] = useState("")
   const [referenceNumber, setReferenceNumber] = useState("")
   const [notes, setNotes] = useState("")
+  // Reset form
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Edit dialog state
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [editingTx, setEditingTx] = useState<any>(null)
+  const [editType, setEditType] = useState<BankTxType>("deposit")
+  const [editBankId, setEditBankId] = useState("")
+  const [editAmount, setEditAmount] = useState("")
+  const [editFee, setEditFee] = useState("")
+  const [editAccountNumber, setEditAccountNumber] = useState("")
+  const [editAccountName, setEditAccountName] = useState("")
+  const [editTellerNumber, setEditTellerNumber] = useState("")
+  const [editCustomerName, setEditCustomerName] = useState("")
+  const [editCustomerPhone, setEditCustomerPhone] = useState("")
+  const [editReferenceNumber, setEditReferenceNumber] = useState("")
+  const [editNotes, setEditNotes] = useState("")
+  const [isEditingSubmitting, setIsEditingSubmitting] = useState(false)
+
+  const startEditTx = (tx: any) => {
+    setEditingTx(tx)
+    setEditType(tx.type)
+    setEditBankId(tx.bankId)
+    setEditAmount(tx.amount.toString())
+    setEditFee(tx.fee.toString())
+    setEditAccountNumber(tx.accountNumber || "")
+    setEditAccountName(tx.accountName || "")
+    setEditTellerNumber(tx.tellerNumber || "")
+    setEditCustomerName(tx.customerName || "")
+    setEditCustomerPhone(tx.customerPhone || "")
+    setEditReferenceNumber(tx.referenceNumber || "")
+    setEditNotes(tx.notes || "")
+    setIsEditOpen(true)
+  }
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingTx || !editBankId) return
+
+    const amtNum = ["deposit", "withdrawal", "cardless_withdrawal"].includes(editType) ? Number(editAmount) : 0
+    if (["deposit", "withdrawal", "cardless_withdrawal"].includes(editType) && (isNaN(amtNum) || amtNum <= 0)) return
+
+    try {
+      setIsEditingSubmitting(true)
+      await updateBankTransaction(editingTx.id, {
+        type: editType,
+        accountNumber: editAccountNumber || null,
+        accountName: editAccountName || null,
+        amount: amtNum,
+        fee: editFee ? Number(editFee) : 0,
+        tellerNumber: editTellerNumber || null,
+        customerName: editCustomerName || null,
+        customerPhone: editCustomerPhone || null,
+        referenceNumber: editReferenceNumber || null,
+        notes: editNotes || null,
+      })
+      setIsEditOpen(false)
+      setEditingTx(null)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsEditingSubmitting(false)
+    }
+  }
 
   // Filters state
   const [search, setSearch] = useState("")
@@ -517,6 +582,7 @@ export default function BankTransactionsPage() {
                   <TableHead className="text-right">Amount & Fee</TableHead>
                   <TableHead className="text-right text-success">Commission</TableHead>
                   {role === "super_admin" && <TableHead>Agent</TableHead>}
+                  <TableHead className="w-[80px] text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -599,12 +665,24 @@ export default function BankTransactionsPage() {
                             {agent?.name || "Unknown Agent"}
                           </TableCell>
                         )}
+                        <TableCell className="align-top text-center">
+                          <Button
+                            size="icon-xs"
+                            variant="ghost"
+                            onClick={() => startEditTx(tx)}
+                            className="h-8 w-8 p-0 hover:bg-slate-100"
+                            disabled={role !== "super_admin" && tx.agentId !== currentAgent?.id}
+                          >
+                            <Pencil className="size-3.5 text-muted-foreground" />
+                            <span className="sr-only">Edit</span>
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     )
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={role === "super_admin" ? 6 : 5} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={role === "super_admin" ? 7 : 6} className="h-24 text-center text-muted-foreground">
                       No bank transactions matching filters.
                     </TableCell>
                   </TableRow>
@@ -614,6 +692,192 @@ export default function BankTransactionsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Bank Transaction Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Edit Bank Transaction</DialogTitle>
+            <DialogDescription>
+              Modify bank transaction fields or correct values if mistakes were made.
+            </DialogDescription>
+          </DialogHeader>
+          {editingTx && (
+            <form onSubmit={handleEditSubmit} className="flex flex-col gap-3 py-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="edit-srv-type" className="text-xs font-semibold">Service Type</Label>
+                  <Select
+                    value={editType}
+                    onValueChange={(val: BankTxType) => setEditType(val)}
+                  >
+                    <SelectTrigger id="edit-srv-type" className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="deposit">Cash Deposit</SelectItem>
+                      <SelectItem value="withdrawal">Cash Withdrawal</SelectItem>
+                      <SelectItem value="balance_inquiry">Balance Inquiry</SelectItem>
+                      <SelectItem value="mini_statement">Mini Statement</SelectItem>
+                      <SelectItem value="cardless_withdrawal">Cardless Withdrawal</SelectItem>
+                      <SelectItem value="account_opening">Account Opening Assistance</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs font-semibold">Bank Partner</Label>
+                  <Input value={banks.find((b) => b.id === editingTx.bankId)?.name || editingTx.bankId} disabled className="h-8 text-xs bg-slate-50" />
+                </div>
+
+                {/* Account Number field (Deposits, Withdrawals, Inquiries, Statements) */}
+                {["deposit", "withdrawal", "balance_inquiry", "mini_statement"].includes(editType) && (
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="edit-srv-acct" className="text-xs font-semibold">Account Number</Label>
+                    <Input
+                      id="edit-srv-acct"
+                      placeholder="Customer account number"
+                      required
+                      className="h-8 text-xs"
+                      value={editAccountNumber}
+                      onChange={(e) => setEditAccountNumber(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {/* Account Name (Only Deposit) */}
+                {editType === "deposit" && (
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="edit-srv-name" className="text-xs font-semibold">Account Holder Name</Label>
+                    <Input
+                      id="edit-srv-name"
+                      placeholder="Customer account name"
+                      required
+                      className="h-8 text-xs"
+                      value={editAccountName}
+                      onChange={(e) => setEditAccountName(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {/* Customer Name (Cardless, Account Opening) */}
+                {["cardless_withdrawal", "account_opening"].includes(editType) && (
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="edit-srv-cust-name" className="text-xs font-semibold">Customer Name</Label>
+                    <Input
+                      id="edit-srv-cust-name"
+                      placeholder="Jane Doe"
+                      required
+                      className="h-8 text-xs"
+                      value={editCustomerName}
+                      onChange={(e) => setEditCustomerName(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {/* Customer Phone (Cardless, Account Opening) */}
+                {["cardless_withdrawal", "account_opening"].includes(editType) && (
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="edit-srv-cust-phone" className="text-xs font-semibold">Customer Phone</Label>
+                    <Input
+                      id="edit-srv-cust-phone"
+                      placeholder="0765 000 000"
+                      required={editType === "account_opening"}
+                      className="h-8 text-xs"
+                      value={editCustomerPhone}
+                      onChange={(e) => setEditCustomerPhone(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {/* Amount (Deposit, Withdrawal, Cardless) */}
+                {["deposit", "withdrawal", "cardless_withdrawal"].includes(editType) && (
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="edit-srv-amt" className="text-xs font-semibold">Amount (TZS)</Label>
+                    <Input
+                      id="edit-srv-amt"
+                      type="number"
+                      placeholder="Enter amount"
+                      required
+                      className="h-8 text-xs"
+                      value={editAmount}
+                      onChange={(e) => setEditAmount(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {/* Fee (Withdrawal, Inquiry, Statement, Cardless) */}
+                {["withdrawal", "balance_inquiry", "mini_statement", "cardless_withdrawal"].includes(editType) && (
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="edit-srv-fee" className="text-xs font-semibold">Fee Charged</Label>
+                    <Input
+                      id="edit-srv-fee"
+                      type="number"
+                      placeholder="e.g. 500"
+                      className="h-8 text-xs"
+                      value={editFee}
+                      onChange={(e) => setEditFee(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {/* Teller Number (Deposit, Withdrawal) */}
+                {["deposit", "withdrawal"].includes(editType) && (
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="edit-srv-teller" className="text-xs font-semibold">Teller / POS Number</Label>
+                    <Input
+                      id="edit-srv-teller"
+                      placeholder="e.g. TL-9923"
+                      className="h-8 text-xs"
+                      value={editTellerNumber}
+                      onChange={(e) => setEditTellerNumber(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {/* Reference / OTP */}
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="edit-srv-ref" className="text-xs font-semibold">
+                    {editType === "cardless_withdrawal"
+                      ? "OTP / Withdrawal Code"
+                      : editType === "account_opening"
+                      ? "Application Ref"
+                      : "Bank Reference"}
+                  </Label>
+                  <Input
+                    id="edit-srv-ref"
+                    placeholder="e.g. REF12938472"
+                    className="h-8 text-xs"
+                    value={editReferenceNumber}
+                    onChange={(e) => setEditReferenceNumber(e.target.value)}
+                  />
+                </div>
+
+                {/* Notes (Full width) */}
+                <div className="flex flex-col gap-1 col-span-2">
+                  <Label htmlFor="edit-srv-notes" className="text-xs font-semibold">Notes / Remarks</Label>
+                  <Input
+                    id="edit-srv-notes"
+                    placeholder="Additional transaction info"
+                    className="h-8 text-xs"
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <DialogFooter className="mt-2">
+                <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isEditingSubmitting}>
+                  {isEditingSubmitting ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

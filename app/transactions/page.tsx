@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { ArrowDownLeft, ArrowUpRight, Plus, Search, ShieldCheck } from "lucide-react"
+import { ArrowDownLeft, ArrowUpRight, Plus, Search, ShieldCheck, Pencil } from "lucide-react"
 import { useData } from "@/lib/store"
 import { formatDateTime, formatTZS } from "@/lib/format"
 import { Button } from "@/components/ui/button"
@@ -36,6 +36,7 @@ export default function TransactionsPage() {
     role,
     currentAgent,
     addTransaction,
+    updateTransaction,
     previewCommission,
     networkById,
     agentById,
@@ -51,6 +52,48 @@ export default function TransactionsPage() {
   const [customer, setCustomer] = useState("")
   const [phone, setPhone] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Edit dialog state
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [editingTx, setEditingTx] = useState<any>(null)
+  const [editType, setEditType] = useState<"deposit" | "withdrawal">("deposit")
+  const [editAmount, setEditAmount] = useState("")
+  const [editCustomer, setEditCustomer] = useState("")
+  const [editPhone, setEditPhone] = useState("")
+  const [editRef, setEditRef] = useState("")
+  const [isEditingSubmitting, setIsEditingSubmitting] = useState(false)
+
+  const startEditTx = (tx: any) => {
+    setEditingTx(tx)
+    setEditType(tx.type)
+    setEditAmount(tx.amount.toString())
+    setEditCustomer(tx.customer)
+    setEditPhone(tx.customerPhone)
+    setEditRef(tx.ref)
+    setIsEditOpen(true)
+  }
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingTx || !editAmount || isNaN(Number(editAmount)) || Number(editAmount) <= 0) return
+
+    try {
+      setIsEditingSubmitting(true)
+      await updateTransaction(editingTx.id, {
+        type: editType,
+        amount: Number(editAmount),
+        customer: editCustomer || "Walk-in Customer",
+        customerPhone: editPhone || "",
+        ref: editRef,
+      })
+      setIsEditOpen(false)
+      setEditingTx(null)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsEditingSubmitting(false)
+    }
+  }
 
   // Filters state
   const [search, setSearch] = useState("")
@@ -333,6 +376,7 @@ export default function TransactionsPage() {
                   <TableHead>Commission</TableHead>
                   <TableHead>Customer</TableHead>
                   {role === "super_admin" && <TableHead>Agent</TableHead>}
+                  <TableHead className="w-[80px] text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -408,6 +452,18 @@ export default function TransactionsPage() {
                             </Badge>
                           </TableCell>
                         )}
+                        <TableCell className="text-center">
+                          <Button
+                            size="icon-xs"
+                            variant="ghost"
+                            onClick={() => startEditTx(t)}
+                            className="h-8 w-8 p-0 hover:bg-slate-100"
+                            disabled={role !== "super_admin" && t.agentId !== currentAgent?.id}
+                          >
+                            <Pencil className="size-3.5 text-muted-foreground" />
+                            <span className="sr-only">Edit</span>
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     )
                   })
@@ -417,6 +473,96 @@ export default function TransactionsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Transaction Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Transaction</DialogTitle>
+            <DialogDescription>
+              Correct details or transaction bounds if mistakes were made.
+            </DialogDescription>
+          </DialogHeader>
+          {editingTx && (
+            <form onSubmit={handleEditSubmit} className="flex flex-col gap-4 py-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="edit-tx-type">Transaction Type</Label>
+                  <Select
+                    value={editType}
+                    onValueChange={(val: "deposit" | "withdrawal") => setEditType(val)}
+                  >
+                    <SelectTrigger id="edit-tx-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="deposit">Deposit (Cash-In)</SelectItem>
+                      <SelectItem value="withdrawal">Withdrawal (Cash-Out)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label>Mobile Network</Label>
+                  <Input value={networkById(editingTx.networkId)?.name || editingTx.networkId} disabled className="bg-slate-50" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="edit-tx-ref">Reference ID</Label>
+                  <Input
+                    id="edit-tx-ref"
+                    required
+                    value={editRef}
+                    onChange={(e) => setEditRef(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="edit-tx-amount">Amount (TZS)</Label>
+                  <Input
+                    id="edit-tx-amount"
+                    type="number"
+                    required
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="edit-tx-customer">Customer Name</Label>
+                  <Input
+                    id="edit-tx-customer"
+                    value={editCustomer}
+                    onChange={(e) => setEditCustomer(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="edit-tx-phone">Customer Phone</Label>
+                  <Input
+                    id="edit-tx-phone"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <DialogFooter className="mt-2">
+                <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isEditingSubmitting || !editAmount}>
+                  {isEditingSubmitting ? "Saving..." : "Save Changes"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
